@@ -8,3 +8,6 @@ rappel deadlines:
  - 15/12 modélisation papier
  - 15/02 rapport
  - 14/02 soutenance.
+
+## Fichiers
+modelisation_papier.pdf est la modèlisation papier correspondant à l'exercice 1.
