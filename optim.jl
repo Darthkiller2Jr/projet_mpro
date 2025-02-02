@@ -36,21 +36,3 @@ function simple_opt(V,A,t_hat,t,d,C,T)
 
     return value.(x), JuMP.objective_value(m)
 end
-
-function visualize_solution(x, obj, coordinates, n, C, T)
-    # Create a new plot for each solution
-    filename = "fig/Sol_n$(n)_C$(C)_T$(T).png"
-    plt = scatter(coordinates[:, 1], coordinates[:, 2], legend=false, title="VRP Solution: C=$C, T=$T, obj=$obj", xlabel="X", ylabel="Y", markersize=8)
-
-    # Draw the arcs (paths) that are selected in the solution
-    for i in 1:n
-        for j in 1:n
-            if i != j && x[(i, j)] == 1
-                plot!([coordinates[i, 1], coordinates[j, 1]], [coordinates[i, 2], coordinates[j, 2]], color=:blue, linewidth=2, label="")
-            end
-        end
-    end
-
-    # Display the plot
-    savefig(plt, filename)
-end

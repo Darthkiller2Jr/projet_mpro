@@ -1,5 +1,6 @@
 using JuMP, CPLEX, Plots
 include("optim.jl")
+include("lecture.jl")
 
 function visualize_solution(x, obj, coordinates, n, C, T)
     # Create a new plot for each solution
@@ -19,6 +20,7 @@ function visualize_solution(x, obj, coordinates, n, C, T)
     savefig(plt, filename)
 end
 
+"""
 # Define sets and parameters
 n = 10  # Number of vertices
 V = 1:n  # Set of vertices (adjust n as needed)
@@ -47,4 +49,13 @@ x3,obj3 = simple_opt(V,A,t_hat,t,d,20,1)
 visualize_solution(x3,obj3, coordinates, n, 20, 1)
 
 x4,obj4 = simple_opt(V,A,t_hat,t,d,20,3)
-visualize_solution(x4,obj4, coordinates, n, 20, 3)
+visualize_solution(x4,obj4, coordinates, n, 20, 3)"""
+
+for i in 5:20
+    include("data/n_$(i)-euclidean_false")
+    _,obj_false = simple_opt(V,A,th,t,d,C,T)
+    println(obj_false)
+    include("data/n_$(i)-euclidean_true")
+    _,obj_true = simple_opt(V,A,th,t,d,C,T)
+    println(obj_true)
+end

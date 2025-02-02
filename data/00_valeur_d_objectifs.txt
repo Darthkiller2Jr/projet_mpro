@@ -1,0 +1,16 @@
+Instance instance_n5.txt
+objectif statique, objectif robuste : 2561 2786
+
+Instances non euclidiennes
+n = 6 : objectif statique 2554, objectif robuste 3307
+n = 7 : objectif statique 1857, objectif robuste 2066
+n = 8 : objectif statique 2335, objectif robuste 3270
+n = 9 : objectif statique 2699, objectif robuste 3113
+n = 10 : objectif statique 2190, objectif robuste 2684
+
+Instances euclidiennes
+n = 6 : objectif statique 3022, objectif robuste 3087
+n = 7 : objectif statique 2983, objectif robuste 3132
+n = 8 : objectif statique 3574, objectif robuste 3776
+n = 9 : objectif statique 3529, objectif robuste 4181
+n = 10 : objectif statique 4835, objectif robuste 5423 
