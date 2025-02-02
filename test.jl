@@ -51,11 +51,21 @@ visualize_solution(x3,obj3, coordinates, n, 20, 1)
 x4,obj4 = simple_opt(V,A,t_hat,t,d,20,3)
 visualize_solution(x4,obj4, coordinates, n, 20, 3)"""
 
-for i in 5:20
+"""include("data/n_10-euclidean_true")
+x2,obj2 = simple_opt(V,A,th,t,d,C,0)
+println(obj2)"""
+i=1
+obj_false=0
+obj_true=0
+"""for i in 5:20
+    println("n = $(i)")
     include("data/n_$(i)-euclidean_false")
-    _,obj_false = simple_opt(V,A,th,t,d,C,T)
-    println(obj_false)
+    x,obj_false = simple_opt(n,th,t,d,C,T)
+    println("objectif (non euclidien): $obj_false")
     include("data/n_$(i)-euclidean_true")
-    _,obj_true = simple_opt(V,A,th,t,d,C,T)
-    println(obj_true)
-end
+    x,obj_true = simple_opt(n,th,t,d,C,T)
+    println("objectif (euclidien): $obj_true")
+end"""
+
+include("data/n_10-euclidean_true")
+print(robust_clark_wright(n,t,th,d,C))
