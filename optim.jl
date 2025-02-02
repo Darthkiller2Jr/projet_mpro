@@ -1,4 +1,5 @@
 using JuMP, CPLEX, LinearAlgebra
+include("heuristiques.jl")
 
 function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::Int,T::Int;verbose=false)
 
@@ -43,88 +44,4 @@ function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::I
     optimize!(m)
 
     return value.(x), JuMP.objective_value(m)
-end
-
-function savings_temps_max(n::Int, t::Matrix{Int},t_hat::Vector{Int})
-    savings = Vector{Tuple{Int, Int, Int}}()
-    for i in 1:n-1
-        for j in i+1:n
-            # Utilisation des temps max
-            savings_ij = t[i,j] + (t_hat[i] + t_hat[j]) + 2 * t_hat[j] * t_hat[i]
-            push!(savings, (savings_ij, i, j))
-        end
-    end
-    return savings
-end
-
-function savings_temps_nominal(n::Int, t::Matrix{Int})
-    savings = Vector{Tuple{Int, Int, Int}}()
-    for i in 1:n-1
-        for j in i+1:n
-            # Utilisation des temps nominaux
-            savings_ij = t[i,j]
-            push!(savings, (savings_ij, i, j))
-        end
-    end
-    return savings
-end
-
-function robust_clark_wright(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int)
-    # Initialisation : une route/client
-    routes = [[i] for i in 1:n]
-    
-    # Calculs des savings
-    savings = savings_temps_nominal(n, t)
-    
-    # Tri des savings
-    sort!(savings, by=x -> x[1], rev=true)
-    
-    # Merge des routes
-    for (saving, i, j) in savings
-        println(i)
-        println(j)
-        # Routes terminant/commencant par i/j
-        route_i = find_route(routes, i, false)
-        route_j = find_route(routes, j, true)
-        println(routes)
-        #println(route_i)
-        #println(route_j)
-        
-        # Check if merging is feasible
-        if route_i !== nothing && route_j !== nothing && route_i != route_j && is_feasible(route_i, route_j, d, C)
-            # Merge routes
-            merged_route = merge_routes(route_i, route_j)
-            filter!(x -> x != route_i, routes)
-            filter!(x -> x != route_j, routes)
-            filter!(x -> x != reverse(route_i), routes)
-            filter!(x -> x != reverse(route_j), routes)
-            push!(routes, merged_route)
-        end
-    end
-    
-    return routes
-end
-
-function find_route(routes, customer::Int, deb::Bool)
-    for route in routes
-        if (customer == route[1] && deb) || (customer == route[end] && !deb)
-            return route
-        end
-        if (customer == route[1] && !deb) || (customer == route[end] && deb)
-            return reverse(route)
-        end
-    end
-    println("Pas de route trouvée")
-    return nothing
-end
-
-function is_feasible(route_i, route_j, d, C)
-    # Check if the merged route satisfies capacity constraints
-    merged_demand = sum(d[i] for i in route_i) + sum(d[j] for j in route_j)
-    return merged_demand <= C
-end
-
-# Merge de 2 routes
-function merge_routes(route_i, route_j)
-    return vcat(route_i, route_j)
 end

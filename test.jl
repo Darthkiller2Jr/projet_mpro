@@ -1,6 +1,5 @@
 using JuMP, CPLEX, Plots
 include("optim.jl")
-include("lecture.jl")
 
 function visualize_solution(x, obj, coordinates, n, C, T)
     # Create a new plot for each solution
@@ -67,5 +66,16 @@ obj_true=0
     println("objectif (euclidien): $obj_true")
 end"""
 
-include("data/n_10-euclidean_true")
-print(robust_clark_wright(n,t,th,d,C))
+#include("data/n_10-euclidean_true")
+#print(robust_clark_wright(n,t,th,d,C))
+
+include("data/n_15-euclidean_true")
+routes_CW = robust_clark_wright(n, t, th, d, C, true)
+println("Routes CW: ",routes_CW)
+println("Borne sup cout total CW : ", total_cost(routes_CW,t,th,true))
+println("Cout réel de la sol CW: ", real_cost(routes_CW,n,th,t,T))
+routes_LK = lin_kernighan_VRP(n, t, th, d, C, true)
+println("Routes LK: ",routes_LK)
+println("Borne sup cout total LK : ", total_cost(routes_LK,t,th,true))
+println("Cout réel de la sol LK: ", real_cost(routes_LK,n,th,t,T))
+println("Optimum réel : ", simple_opt(n,th,t,d,C,T)[2])
