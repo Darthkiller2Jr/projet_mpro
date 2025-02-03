@@ -1,13 +1,13 @@
 using JuMP, CPLEX, LinearAlgebra
 include("heuristiques.jl")
 
-function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::Int,T::Int;verbose=false)
+function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::Int,T::Int; heuristic_solution=nothing, verbose=false)
 
     m = Model(CPLEX.Optimizer) # Define the model
     if !verbose
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 30)
+    #set_optimizer_attribute(m, "CPX_PARAM_TILIM", 30)
     
     # param
     V = 1:n
@@ -16,6 +16,14 @@ function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::I
     @variable(m, theta)
     @variable(m, x[(i, j) in A], Bin)
     @variable(m, u[i in V])
+
+    # éventuelle sol heuristique
+    if heuristic_solution !== nothing
+        for (i,j) in A
+            set_start_value(x[(i,j)], get(heuristic_solution, (i,j), 0.0))
+        end
+    end
+
 
     # Dualisation pour l'ensemble d'incertitude polyhedrique
     @variable(m,eta_1)

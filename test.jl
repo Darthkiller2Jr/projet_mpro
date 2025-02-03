@@ -69,22 +69,52 @@ end"""
 #include("data/n_10-euclidean_true")
 #print(robust_clark_wright(n,t,th,d,C))
 
-max = true
+"""max = true
 include("data/n_20-euclidean_true")
 routes_CW = robust_clark_wright(n, t, th, d, C, max)
 println("Routes CW: ",routes_CW)
 #println(routes_to_x(routes_CW,n))
 println("Borne sup cout total CW : ", total_cost(routes_CW,t,th,max))
 println("Cout réel de la sol CW: ", real_cost(routes_CW,n,th,t,T))
-routes_LK = lin_kernighan_VRP(n, t, th, d, C, max; two_opt=true)
+routes_LK = lin_kernighan_VRP(n, t, th, d, C, max; two_opt=false)
 println("Routes LK: ",routes_LK)
 #println(routes_to_x(routes_LK,n))
 println("Borne sup cout total LK : ", total_cost(routes_LK,t,th,max))
 println("Cout réel de la sol LK: ", real_cost(routes_LK,n,th,t,T))
-routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=true)
+routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=false)
 println("Routes LK^2: ",routes_LK_2)
 println("Borne sup cout total LK entre routes : ", total_cost(routes_LK_2,t,th,max))
 println("Cout réel de la sol LK entre routes : ", real_cost(routes_LK_2,n,th,t,T))
 sol_opt = simple_opt(n,th,t,d,C,T;verbose=false)
 println("Optimum réel : ",sol_opt[2])
-println("Routes optimale : ", x_to_routes(sol_opt[1],n))
+println("Routes optimale : ", x_to_routes(sol_opt[1],n))"""
+
+max = true
+include("data/n_15-euclidean_true")
+routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=false)
+println("Routes LK^2: ",routes_LK_2)
+println("Cout réel de la sol LK entre routes : ", real_cost(routes_LK_2,n,th,t,T))
+
+# With heuristic
+println("Solving with heuristic:")
+time_with_heuristic = @elapsed begin
+    routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=false)
+    heuristic_x = routes_to_x(routes_LK_2, n)
+    sol_opt_with_heuristic = simple_opt(n, th, t, d, C, T; heuristic_solution=heuristic_x, verbose=false)
+end
+println("Time with heuristic: ", time_with_heuristic, " seconds")
+println("Optimum réel (with heuristic): ", sol_opt_with_heuristic[2])
+println("Routes optimale (with heuristic): ", x_to_routes(sol_opt_with_heuristic[1], n))
+
+# Without heuristic
+println("\nSolving without heuristic:")
+time_without_heuristic = @elapsed begin
+    sol_opt_without_heuristic = simple_opt(n, th, t, d, C, T; verbose=false)
+end
+println("Time without heuristic: ", time_without_heuristic, " seconds")
+println("Optimum réel (without heuristic): ", sol_opt_without_heuristic[2])
+println("Routes optimale (without heuristic): ", x_to_routes(sol_opt_without_heuristic[1], n))
+
+# Calculate speedup
+speedup = time_without_heuristic / time_with_heuristic
+println("\nSpeedup: ", speedup, "x")
