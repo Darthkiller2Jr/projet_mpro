@@ -43,5 +43,5 @@ function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::I
 
     optimize!(m)
 
-    return value.(x), JuMP.objective_value(m)
+    return Dict((i, j) => value(x[(i,j)]) for (i,j) in A), objective_value(m), JuMP.objective_value(m)
 end
