@@ -7,7 +7,7 @@ function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::I
     if !verbose
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    #set_optimizer_attribute(m, "CPX_PARAM_TILIM", 30)
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 300)
     
     # param
     V = 1:n

@@ -1,4 +1,4 @@
-using JuMP, CPLEX, Plots
+using JuMP, CPLEX, Plots, BenchmarkTools
 include("optim.jl")
 
 function visualize_solution(x, obj, coordinates, n, C, T)
@@ -89,32 +89,51 @@ sol_opt = simple_opt(n,th,t,d,C,T;verbose=false)
 println("Optimum réel : ",sol_opt[2])
 println("Routes optimale : ", x_to_routes(sol_opt[1],n))"""
 
-max = true
-include("data/n_15-euclidean_true")
-routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=false)
-println("Routes LK^2: ",routes_LK_2)
-println("Cout réel de la sol LK entre routes : ", real_cost(routes_LK_2,n,th,t,T))
 
-# With heuristic
-println("Solving with heuristic:")
-time_with_heuristic = @elapsed begin
-    routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=false)
+function comparaison_with_without_heuristique(file::String,euclidien::Bool;two_opt::Bool=true)
+    println(file)
+    include(file)
+    max=true
+
+    time_heuristic = @elapsed begin
+        routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max, euclidien; two_opt=two_opt)
+    end
+    #println("Routes LK^2: ",routes_LK_2)
+    println("Cout réel de la sol heuristique : ", real_cost(routes_LK_2,n,th,t,T))
+    println("Time of heuristic: ", time_heuristic, " seconds")
+
     heuristic_x = routes_to_x(routes_LK_2, n)
-    sol_opt_with_heuristic = simple_opt(n, th, t, d, C, T; heuristic_solution=heuristic_x, verbose=false)
-end
-println("Time with heuristic: ", time_with_heuristic, " seconds")
-println("Optimum réel (with heuristic): ", sol_opt_with_heuristic[2])
-println("Routes optimale (with heuristic): ", x_to_routes(sol_opt_with_heuristic[1], n))
+    # With heuristic
+    #println("Solving with heuristic:")
+    time_with_heuristic = @elapsed begin
+        sol_opt_with_heuristic = simple_opt(n, th, t, d, C, T; heuristic_solution=heuristic_x, verbose=false)
+        #lb = JuMP.objective_bound(m)
+    end
+    println("Optimum réel : ", sol_opt_with_heuristic[2])
+    println("Time with heuristic: ", time_with_heuristic, " seconds")
+    #println("Routes optimale (with heuristic): ", x_to_routes(sol_opt_with_heuristic[1], n))
 
-# Without heuristic
-println("\nSolving without heuristic:")
-time_without_heuristic = @elapsed begin
-    sol_opt_without_heuristic = simple_opt(n, th, t, d, C, T; verbose=false)
-end
-println("Time without heuristic: ", time_without_heuristic, " seconds")
-println("Optimum réel (without heuristic): ", sol_opt_without_heuristic[2])
-println("Routes optimale (without heuristic): ", x_to_routes(sol_opt_without_heuristic[1], n))
+    # Without heuristic
+    #println("\nSolving without heuristic:")
+    time_without_heuristic = @elapsed begin
+        sol_opt_without_heuristic = simple_opt(n, th, t, d, C, T; verbose=false)
+    end
+    println("Time without heuristic: ", time_without_heuristic, " seconds")
+    #println("Routes optimale (without heuristic): ", x_to_routes(sol_opt_without_heuristic[1], n))
 
-# Calculate speedup
-speedup = time_without_heuristic / time_with_heuristic
-println("\nSpeedup: ", speedup, "x")
+    # Calculate speedup
+    speedup = time_without_heuristic / time_with_heuristic
+    println("Speedup: ", speedup, "x")
+    println()
+end
+
+function comparaison_with_without_heuristique_all_i()
+    for i in 5:15
+        euclidien = true
+        file = "data/n_$i-euclidean_$euclidien"
+        comparaison_with_without_heuristique(file,euclidien)
+        euclidien = false
+        file = "data/n_$i-euclidean_$euclidien"
+        comparaison_with_without_heuristique(file,euclidien)
+    end
+end
