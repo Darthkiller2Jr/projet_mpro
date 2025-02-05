@@ -182,7 +182,7 @@ function branch_and_cut(file, time_limit = 1)
     m = Model(CPLEX.Optimizer)
 
     MOI.set(m, MOI.NumberOfThreads(), 1)
-    # set_silent(m)
+    set_silent(m)
     set_time_limit_sec(m, time_limit)
 
     # Variables
@@ -213,11 +213,9 @@ function branch_and_cut(file, time_limit = 1)
             val_z = callback_value(cb_data, z)
 
             val_slave, t_star = slave_fast(n, x_star, t, th, T)
-            println("coupe ?")
             if val_z < val_slave
                 cstr = @build_constraint(z >= sum(t_star[i,j]*x[i,j] for i in 1:n, j in 1:n if j!=i))
                 MOI.submit(m, MOI.LazyConstraint(cb_data), cstr)
-                println("coupe")
             end
         end
     end
