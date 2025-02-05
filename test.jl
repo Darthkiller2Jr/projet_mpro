@@ -84,10 +84,10 @@ println("Cout réel de la sol LK: ", real_cost(routes_LK,n,th,t,T))
 routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=false)
 println("Routes LK^2: ",routes_LK_2)
 println("Borne sup cout total LK entre routes : ", total_cost(routes_LK_2,t,th,max=max))
-println("Cout réel de la sol LK entre routes : ", real_cost(routes_LK_2,n,th,t,T))"""
+println("Cout réel de la sol LK entre routes : ", real_cost(routes_LK_2,n,th,t,T))
 sol_opt = simple_opt(n,th,t,d,C,T;verbose=false)
 println("Optimum réel : ",sol_opt[2])
-println("Routes optimale : ", x_to_routes(sol_opt[1],n))
+println("Routes optimale : ", x_to_routes(sol_opt[1],n))"""
 
 
 function comparaison_with_without_heuristique(n::Int, euclidien::Bool;two_opt::Bool=true)
@@ -97,7 +97,7 @@ function comparaison_with_without_heuristique(n::Int, euclidien::Bool;two_opt::B
     max=true
 
     time_heuristic = @elapsed begin
-        routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max, euclidien; two_opt=two_opt)
+        routes_LK_2 = hybrid_heuristic(n, t, th, d, C, euclidien;max=max, two_opt=two_opt)
     end
     #println("Routes LK^2: ",routes_LK_2)
     println("Cout réel de la sol heuristique : ", real_cost(routes_LK_2,n,th,t,T))
