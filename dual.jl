@@ -64,13 +64,28 @@ end
 
 function main_dual(time_limit = 10)
     name_results = "resultats_dual_"*string(time_limit)*"s.txt"
+    name_solution = "solutions_duales.txt"
+
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap \t solution")
+    sol_file = open("results/"*name_solution, "w")
+    println(results_file, "file \t comput time \t limit time \t val \t gap")
+    nb_resolue = 0
     for file in readdir("data")
         file_name = "data"*"/"*file
         val, bound, comput_time, x = dual(file_name, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap, "\t", x)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit,"\t", val, "\t", gap)
+
+        if gap<1e-2
+            println(sol_file, file_name, "*********************************************************************")
+            for i in findall(x.> 1-1e-4)
+                print(sol_file, "(",i[1],",", i[2],")"," ")
+            end
+            println(sol_file)
+            nb_resolue +=1
+        end
     end   
     close(results_file)
+    println(sol_file, "nb instances résolues : ", nb_resolue)
+    close(sol_file)
 end

@@ -33,7 +33,7 @@ function master(n, C, d, U, time_limit)
         # Récupération des valeurs d’une variable
         vx = JuMP.value.(x)
         vz = JuMP.value.(z)
-        return vz, vx
+        return vz, vx, ceil(JuMP.objective_bound(m))
     end
 end
 
@@ -138,21 +138,21 @@ function plans_coupants(file, slave_heur = true, time_limit = 30)
     U = Vector{Matrix{Float64}}(undef, 1)
     U[1] = t
     start = time()
-    val_z, x_star = master(n,C,d,U, time_limit)
+    val_z, x_star, bound_master = master(n,C,d,U, time_limit)
     s = time()
     val_slave, t_star = slave_fn(n,x_star,t,th,T, time_limit)
     time_slave += time()-s
     # Condition d'arêt:
     #   optimalité si le sous problème donne une meilleure solution que le problème maître
     #   le temps limite est dépassé
-    while val_slave > val_z && time()-start < time_limit
+    while val_slave > bound_master && time()-start < time_limit
         
         # Résolution du problème maître
         time_left = time_limit - (time()-start)
         if time_left < 0.5
             break
         end
-        val_z, x_star = master(n,C,d,U, time_left)
+        val_z, x_star, bound_master = master(n,C,d,U, time_left)
         # Résolution du sous-problème
         time_left = time_limit - (time()-start)
         if time_left < 0.5
@@ -167,8 +167,8 @@ function plans_coupants(file, slave_heur = true, time_limit = 30)
     comput_time = time()-start
     
     # la valeur du ss pb est la valeur d'une solution réalisable, la valeur du probleme maître une borne inf (relaxation de contraintes)
-    println("File: ", file, "\t Valeur de l’objectif : ", val_slave, "\t Meilleure borne : ", val_z, "\t time : ",comput_time)
-    return val_slave, val_z, comput_time, time_slave/comput_time*100, x_star
+    println("File: ", file, "\t Valeur de l’objectif : ", val_slave, "\t Meilleure borne : ", bound_master, "\t time : ",comput_time)
+    return val_slave, bound_master, comput_time, time_slave/comput_time*100, x_star
 end
 
 function branch_and_cut(file, slave_heur = true, time_limit = 1)
@@ -241,35 +241,82 @@ function branch_and_cut(file, slave_heur = true, time_limit = 1)
 end
 
 function main_plans_coupants(time_limit = 10, heuristique = true)
+
+    # nom des fichiers d'écriture
     if heuristique
         name_results = "resultats_pc_fast_"*string(time_limit)*"s.txt"
+        name_solution = "solutions_pc_fast.txt"
     else
-        name_results = "resultats_pc_fast_"*string(time_limit)*"s.txt"
+        name_results = "resultats_pc_"*string(time_limit)*"s.txt"
+        name_solution = "solutions_pc.txt"
     end
+    
+    # emplacement des fichiers d'écriture
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%) \t solution")
+    sol_file = open("results/"*name_solution, "w")
+
+    # titre
+    println(results_file, "file \t comput time \t limit time \t val \t gap \t time slave/total time(%)")
+
+    # parcours des instances pour résolution et écriture
+    nb_resolue =0
     for file in readdir("data")
         file_name = "data"*"/"*file
         val, bound, comput_time, prop_slave, x = plans_coupants(file_name, heuristique, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap, "\t", prop_slave)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", val, "\t", gap, "\t", prop_slave)
+
+        # si instance résolue on écrit la solution
+        
+        if gap<1e-2
+            println(sol_file, file_name, "*********************************************************************")
+            for i in findall(x.> 1-1e-4)
+                print(sol_file, "(",i[1],",", i[2],")"," ")
+            end
+            println(sol_file)
+            nb_resolue +=1
+        end
     end   
     close(results_file)
+    println(sol_file, "nb instances résolues : ", nb_resolue)
+    close(sol_file)
 end
 
 function main_branch_and_cut(time_limit = 10, heuristique = true)
+
+    # nom des fichiers d'écriture
     if heuristique
         name_results = "resultats_bnc_fast_"*string(time_limit)*"s.txt"
+        name_solution = "solutions_bnc_fast.txt"
     else
-        name_results = "resultats_bnc_fast_"*string(time_limit)*"s.txt"
+        name_results = "resultats_bnc_"*string(time_limit)*"s.txt"
+        name_solution = "solutions_bnc.txt"
     end
+
+    # emplacement des fichiers d'écriture
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%) \t solution")
+    sol_file = open("results/"*name_solution, "w")
+    println(results_file, "file \t comput time \t limit time \t val \t gap \t time slave/total time(%)")
+
+    # parcours des instances pour résolution et écriture
     for file in readdir("data")
         file_name = "data/"*file
         val, bound, comput_time, prop_slave, x = branch_and_cut(file_name, heuristique, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap,  "\t", prop_slave, "\t", x)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", val,"\t", gap,  "\t", prop_slave)
+
+        # si instance résolue on écrit la solution
+        nb_resolue = 0
+        if gap<1e-2
+            println(sol_file, file_name, "*********************************************************************")
+            for i in findall(x.> 1-1e-4)
+                print(sol_file, "(",i[1],",", i[2],")"," ")
+            end
+            println(sol_file)
+            nb_resolue +=1
+        end
     end   
     close(results_file)
+    println(sol_file, "nb instances résolues : ", nb_resolue)
+    close(sol_file)
 end
