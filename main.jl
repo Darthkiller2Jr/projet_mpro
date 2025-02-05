@@ -3,8 +3,8 @@ include("plans_coupants.jl")
 
 function main(time_limit)
 
-    println("Algorithme de branch and cut avec heuristique")
-    main_branch_and_cut(time_limit, true)
+    # println("Algorithme de branch and cut avec heuristique")
+    # main_branch_and_cut(time_limit, true)
 
     println("Algorithme de plans coupants avec heuristique")
     main_plans_coupants(time_limit, true)
