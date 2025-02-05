@@ -56,9 +56,9 @@ function dual(file::String, time_limit = 30.0)
     if feasibleSolutionFound
         # Récupération des valeurs d’une variable
         vX = JuMP.value.(x)
-        bound = JuMP.objective_bound(m)
+        bound = ceil(JuMP.objective_bound(m))
         println("File: ", file, "\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound) 
-        return JuMP.objective_value(m), bound, comput_time
+        return round(JuMP.objective_value(m)), bound, comput_time
     end
 end
 
