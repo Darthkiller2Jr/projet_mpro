@@ -1,13 +1,13 @@
 using JuMP, CPLEX, LinearAlgebra
 include("heuristiques.jl")
 
-function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::Int,T::Int; heuristic_solution=nothing, verbose=false)
+function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::Int,T::Int; heuristic_solution=nothing, verbose=false, time_limit = 10)
 
     m = Model(CPLEX.Optimizer) # Define the model
     if !verbose
         set_optimizer_attribute(m, "CPX_PARAM_SCRIND", 0)
     end
-    set_optimizer_attribute(m, "CPX_PARAM_TILIM", 300)
+    set_optimizer_attribute(m, "CPX_PARAM_TILIM", time_limit)
     
     # param
     V = 1:n
@@ -49,7 +49,17 @@ function simple_opt(n::Int,t_hat::Vector{Int},t::Matrix{Int},d::Vector{Int},C::I
     
     @objective(m,Min,theta)
 
-    optimize!(m)
+    compute_time = @elapsed begin 
+        optimize!(m)
+    end
 
-    return Dict((i, j) => value(x[(i,j)]) for (i,j) in A), objective_value(m), JuMP.objective_value(m)
+    feasibleSolutionFound = primal_status(m) == MOI.FEASIBLE_POINT
+    isOptimal = termination_status(m) == MOI.OPTIMAL
+    
+    if feasibleSolutionFound
+        bound = JuMP.objective_bound(m)
+        #println("Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound) 
+        return Dict((i, j) => value(x[(i,j)]) for (i,j) in A), objective_value(m), bound, compute_time
+    end
+
 end
