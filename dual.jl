@@ -56,21 +56,36 @@ function dual(file::String, time_limit = 30.0)
     if feasibleSolutionFound
         # Récupération des valeurs d’une variable
         vX = JuMP.value.(x)
-        bound = JuMP.objective_bound(m)
-        println("File: ", file, "\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound) 
-        return JuMP.objective_value(m), bound, comput_time
+        bound = ceil(JuMP.objective_bound(m))
+        println("File: ", file, "\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound, "\t time : ", comput_time) 
+        return round(JuMP.objective_value(m)), bound, comput_time, vX
     end
 end
 
 function main_dual(time_limit = 10)
     name_results = "resultats_dual_"*string(time_limit)*"s.txt"
+    name_solution = "solutions_duales.txt"
+
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap")
+    sol_file = open("results/"*name_solution, "w")
+    println(results_file, "file \t comput time \t limit time \t val \t gap")
+    nb_resolue = 0
     for file in readdir("data")
         file_name = "data"*"/"*file
-        val, bound, comput_time = dual(file_name, time_limit)
+        val, bound, comput_time, x = dual(file_name, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit,"\t", val, "\t", gap)
+
+        if gap<1e-2
+            println(sol_file, file_name, "*********************************************************************")
+            for i in findall(x.> 1-1e-4)
+                print(sol_file, "(",i[1],",", i[2],")"," ")
+            end
+            println(sol_file)
+            nb_resolue +=1
+        end
     end   
     close(results_file)
+    println(sol_file, "nb instances résolues : ", nb_resolue)
+    close(sol_file)
 end
