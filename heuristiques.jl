@@ -84,24 +84,40 @@ function robust_clark_wright(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vect
 end
 
 # Lin-Kernighan Procedure for TSP (applied to each route)
-function lin_kernighan_one_route(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, max::Bool; two_opt::Bool=false)
-    n::Int = length(route)
-    improvement::Bool = true
+function lin_kernighan_one_route(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, max::Bool, euclidien::Bool; two_opt::Bool=false)
+    n = length(route)
+    improvement = true
     #println(route,compute_route_cost(route,t,t_hat,max))
+    old_cost = compute_route_cost(route,t,t_hat,max)
     while improvement
         improvement = false
         for i in 1:n-2
             for j in i+1:n-1
+                #println("Route : $route, test : $i, $j")
                 if two_opt
-                    swap_cost = swap_2opt_cost(route,i,j,t,t_hat,max)
-                    if swap_cost<0
-                        route = two_opt_swap(route, i, j)
-                        improvement = true
-                        #println(route,compute_route_cost(route,t,t_hat,max))
-                    end
+                    if euclidien
+                        swap_cost = swap_2opt_cost(route,i,j,t,t_hat,max)
+                        if swap_cost<0
+                            #println("swap $i, $j ($swap_cost)")
+                            route = two_opt_swap(route, i, j)
+                            improvement = true
+                            #println(route,compute_route_cost(route,t,t_hat,max))
+                        end
+                    else
+                        new_route = two_opt_swap(route, i, j)
+                        new_cost = compute_route_cost(new_route,t,t_hat,max)
+                        if new_cost<old_cost
+                            route = new_route
+                            old_cost = new_cost
+                        end
+                    end   
                 else
                     for k in j+1:n
-                        new_route, improvement = three_opt_swap_best(route, i, j, k, t, t_hat, max)
+                        if euclidien
+                            new_route, improvement = three_opt_swap_best(route, i, j, k, t, t_hat, max)
+                        else
+                            new_route, improvement = three_opt_swap_best_non_eucl(route, i, j, k, t, t_hat, max)
+                        end
                         if improvement
                             route = new_route
                             #println(route, compute_route_cost(route,t,t_hat,max))
@@ -114,7 +130,7 @@ function lin_kernighan_one_route(route::Vector{Int}, t::Matrix{Int}, t_hat::Vect
     return route
 end
 
-function lin_kernighan_all_route(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, max::Bool, d::Vector{Int}, C; two_opt::Bool=false)
+function lin_kernighan_all_route(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, max::Bool, d::Vector{Int}, C, euclidien::Bool; two_opt::Bool=false)
     improvement = true
     
     while improvement
@@ -122,7 +138,7 @@ function lin_kernighan_all_route(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_
         num_routes = length(routes)
 
         for i in 1:num_routes
-            for j in i+1:num_routes  # Only compare different routes
+            for j in i+1:num_routes
                 route_i = routes[i]
                 route_j = routes[j]
 
@@ -135,25 +151,26 @@ function lin_kernighan_all_route(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_
                 for k in 1:length(route_i)
                     for l in 1:length(route_j)
                         res_merge = merge_routes_2opt(route_i, route_j, k, l, d, C)
-                        
+                        #println("$i, $j, $k, $l")
                         if res_merge !== nothing
-                            optimized_route_1 = lin_kernighan_one_route(res_merge[1], t, t_hat, max; two_opt=two_opt)
-                            optimized_route_2 = lin_kernighan_one_route(res_merge[2], t, t_hat, max; two_opt=two_opt)
-
+                            #println("merge possible")
+                            optimized_route_1 = lin_kernighan_one_route(res_merge[1], t, t_hat, max, euclidien; two_opt=two_opt)
+                            #println("Descente route 1 terminée")
+                            optimized_route_2 = lin_kernighan_one_route(res_merge[2], t, t_hat, max, euclidien; two_opt=two_opt)
+                            #println("Descente route 2 terminée")
                             new_cost_r1 = compute_route_cost(optimized_route_1, t, t_hat, max)
                             new_cost_r2 = compute_route_cost(optimized_route_2, t, t_hat, max)
-
                             if new_cost_r1 + new_cost_r2 < best_tot
                                 improvement = true
+                                #println("improvement")
                                 best_tot = new_cost_r1 + new_cost_r2
+                                #println(i," ",j," ",best_tot)
                                 best_route_i = optimized_route_1
                                 best_route_j = optimized_route_2
                             end
                         end
                     end
                 end
-
-                # **Update routes vector in place**
                 routes[i] = best_route_i
                 routes[j] = best_route_j
             end
@@ -182,20 +199,20 @@ function three_opt_swap_best(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matr
     end
 
     # Define the segments
-    segment1::Vector{Int} = route[1:i-1]
-    segment2::Vector{Int} = route[i:j]
-    segment3::Vector{Int} = route[j+1:k]
-    segment4::Vector{Int} = route[k+1:end]
+    segment1 = route[1:i-1]
+    segment2 = route[i:j]
+    segment3 = route[j+1:k]
+    segment4 = route[k+1:end]
     
     #println("Segments:", segment1, segment2, segment3, segment4)
 
     # Original route cost
-    original_cost::Int = cost(t, t_hat, end_segment_1, route[i], max) +
+    original_cost = cost(t, t_hat, end_segment_1, route[i], max) +
                 cost(t, t_hat, route[j], route[j+1], max) +
                 cost(t, t_hat, route[k], deb_segment_4, max)
 
     # All possible reconnections and their costs
-    reconnections::Vector{Any} = [
+    reconnections = [
         (route, original_cost),  # Original route
         (vcat(segment1, reverse(segment2), segment3, segment4), 
         cost(t, t_hat, end_segment_1, segment2[end], max) + cost(t, t_hat, segment2[1], segment3[1], max) + cost(t, t_hat, segment3[end], deb_segment_4, max)),
@@ -222,6 +239,65 @@ function three_opt_swap_best(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matr
         improvement = false
     else
         improvement = true
+    end
+
+    #println(best_index)
+    #println([rc[2] for rc in reconnections])
+    #println(improvement)
+    return best_route, improvement
+end
+
+function three_opt_swap_best_non_eucl(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matrix{Int}, t_hat::Vector{Int}, max::Bool)
+    if i == 1
+        end_segment_1 = 1
+    else
+        end_segment_1 = route[i-1]
+    end
+    if k == length(route)
+        deb_segment_4 = 1
+    else
+        deb_segment_4 = route[k+1]
+    end
+
+    # Define the segments
+    segment1 = route[1:i-1]
+    segment2 = route[i:j]
+    segment3 = route[j+1:k]
+    segment4 = route[k+1:end]
+    
+    #println("Segments:", segment1, segment2, segment3, segment4)
+
+    # Original route cost
+    original_cost = compute_route_cost(route,t,t_hat,max)
+
+    # All possible reconnections and their costs
+    reconnections = [
+        route,  # Original route
+        vcat(segment1, reverse(segment2), segment3, segment4), 
+        vcat(segment1, segment2, reverse(segment3), segment4), 
+        vcat(segment1, reverse(segment2), reverse(segment3), segment4), 
+        vcat(segment1, segment3, segment2, segment4), 
+        vcat(segment1, segment3, reverse(segment2), segment4), 
+        vcat(segment1, reverse(segment3), segment2, segment4), 
+        vcat(segment1, reverse(segment3), reverse(segment2), segment4), 
+    ]
+
+
+    new_costs = zeros(7)  # Preallocate the array
+    for i in 1:7
+        new_costs[i] = compute_route_cost(reconnections[i+1], t, t_hat, max)
+    end
+
+    # Find the best reconnection
+    best_index = argmin(new_costs)
+
+    # Check if the best cost is an improvement
+    if new_costs[best_index]<original_cost
+        improvement = true
+        best_route = reconnections[best_index+1]
+    else
+        improvement = false
+        best_route = route
     end
 
     #println(best_index)
@@ -315,13 +391,12 @@ function routes_to_x(routes::Vector{Vector{Int}},n::Int)
     return x
 end
 
-function x_to_routes(x0::Dict{Tuple{Int, Int}, Float64}, n::Int)
+function x_to_routes(x::Dict{Tuple{Int, Int}, Float64}, n::Int)
     V = 1:n
     routes = Vector{Vector{Int}}()
     next_node = Dict{Int, Int}()
     
-    # Populate the next_node dictionary for non-depot edges
-    for ((i, j), val) in x0
+    for ((i, j), val) in x
         if val > 0.5 && i != 1 && j != 1
             next_node[i] = j
         end
@@ -330,7 +405,7 @@ function x_to_routes(x0::Dict{Tuple{Int, Int}, Float64}, n::Int)
     # Collect all edges starting from the depot (node 1)
     depot_edges = Int[]
     for j in 1:n
-        if j != 1 && get(x0, (1, j), 0.0) > 0.5
+        if j != 1 && get(x, (1, j), 0.0) > 0.5
             push!(depot_edges, j)
         end
     end
@@ -346,8 +421,7 @@ function x_to_routes(x0::Dict{Tuple{Int, Int}, Float64}, n::Int)
                 push!(route, nxt)
                 current = nxt
             else
-                # Check for the return edge to depot
-                if get(x0, (current, 1), 0.0) > 0.5
+                if get(x, (current, 1), 0.0) > 0.5
                     break
                 else
                     error("Invalid x: node $current does not return to depot")
@@ -392,14 +466,14 @@ function real_cost(routes::Vector{Vector{Int}}, n::Int, t_hat::Vector{Int}, t::M
 end
 
 # 2 opt sur les routes de CW
-function lin_kernighan_VRP(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, max::Bool; two_opt::Bool=false)
+function lin_kernighan_VRP(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, max::Bool, euclidien; two_opt::Bool=false)
     # Clark and Wright pour sol initiale
     routes = robust_clark_wright(n, t, t_hat, d, C, max)
     #println("Coût du meilleur routing après Clark Wright : ", total_cost(routes, t, t_hat, max))
     # Lin-Kernighen sur chaque tour
     optimized_routes = Vector{Vector{Int}}()
     for route in routes
-        optimized_route = lin_kernighan_one_route(route, t, t_hat, true; two_opt=two_opt)
+        optimized_route = lin_kernighan_one_route(route, t, t_hat, true,euclidien; two_opt=two_opt)
         push!(optimized_routes, optimized_route)
         #print(optimized_route)
     end
@@ -407,20 +481,22 @@ function lin_kernighan_VRP(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector
     return optimized_routes
 end
 
-function hybrid_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, max::Bool; two_opt::Bool=false)
+function hybrid_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, max::Bool, euclidien::Bool; two_opt::Bool=false)
     
     # Clark and Wright pour sol initiale
     CW_routes = robust_clark_wright(n, t, t_hat, d, C, max)
+    println(CW_routes,real_cost(CW_routes,n,th,t,T))
 
     # Lin-Kernighen sur chaque tour
     LK_routes = Vector{Vector{Int}}()
     for route in CW_routes
-        LK_route = lin_kernighan_one_route(route, t, t_hat, true; two_opt=two_opt)
+        LK_route = lin_kernighan_one_route(route, t, t_hat, true, euclidien; two_opt=two_opt)
         push!(LK_routes, LK_route)
     end
-
+    println(LK_routes,real_cost(LK_routes,n,th,t,T))
     # Merge entre routes
-    LK_all_routes = lin_kernighan_all_route(LK_routes, t, t_hat, true, d, C; two_opt=two_opt)
+    LK_all_routes = lin_kernighan_all_route(LK_routes, t, t_hat, true, d, C, euclidien; two_opt=two_opt)
+    println(LK_all_routes,real_cost(LK_all_routes,n,th,t,T))
 
     return LK_all_routes
 end
