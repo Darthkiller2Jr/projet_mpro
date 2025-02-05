@@ -134,14 +134,14 @@ function plans_coupants(file, slave_heur = true, time_limit = 30)
 
     val_slave = 1
     val_z = 0
-
+    time_slave = 0
     U = Vector{Matrix{Float64}}(undef, 1)
     U[1] = t
     start = time()
     val_z, x_star = master(n,C,d,U, time_limit)
     s = time()
     val_slave, t_star = slave_fn(n,x_star,t,th,T, time_limit)
-
+    time_slave += time()-s
     # Condition d'arêt:
     #   optimalité si le sous problème donne une meilleure solution que le problème maître
     #   le temps limite est dépassé
@@ -158,26 +158,28 @@ function plans_coupants(file, slave_heur = true, time_limit = 30)
         if time_left < 0.5
             break
         end
-            val_slave, t_star = slave_fn(n,x_star,t,th,T, time_left)
-            
+        s = time()
+        val_slave, t_star = slave_fn(n,x_star,t,th,T, time_left)
+        time_slave += time() -s
         # On ajoute la contrainte en augmentant U avec le pire scénario trouvé
         push!(U,t_star)
     end
+    comput_time = time()-start
     
     # la valeur du ss pb est la valeur d'une solution réalisable, la valeur du probleme maître une borne inf (relaxation de contraintes)
-    println("File: ", file, "\t Valeur de l’objectif : ", val_slave, "\t Meilleure borne : ", val_z)
-    return val_slave, val_z, time()-start
+    println("File: ", file, "\t Valeur de l’objectif : ", val_slave, "\t Meilleure borne : ", val_z, "\t time : ",comput_time)
+    return val_slave, val_z, comput_time, time_slave/comput_time*100
 end
 
-function branch_and_cut(file, time_limit = 1)
+function branch_and_cut(file, slave_heur = true, time_limit = 1)
     print("File: ", file)
     include(file)
 
-    # if slave_heur
-    #     slave_fn = slave_fast
-    # else
-    #     slave_fn = slave
-    # end
+    if slave_heur
+        slave_fn = slave_fast
+    else
+        slave_fn = slave
+    end
 
     m = Model(CPLEX.Optimizer)
 
@@ -202,6 +204,8 @@ function branch_and_cut(file, time_limit = 1)
     @constraint(m, [i in 2:n, j in 2:n,  j != i], u[j] - u[i] >= d[i] - C * (1 - x[i,j]))
     @constraint(m, [j in 2:n], u[j] <= C * (1 - x[1,j]))
 
+    time_slave = 0
+
     function callback(cb_data::CPLEX.CallbackContext, context_id::Clong)
         # If the callback is called because a feasible integer solution is found
         if context_id == CPX_CALLBACKCONTEXT_CANDIDATE
@@ -211,8 +215,9 @@ function branch_and_cut(file, time_limit = 1)
 
             x_star = callback_value.((cb_data,), x)
             val_z = callback_value(cb_data, z)
-
+            s = time()
             val_slave, t_star = slave_fast(n, x_star, t, th, T)
+            time_slave += time()-s
             if val_z < val_slave
                 cstr = @build_constraint(z >= sum(t_star[i,j]*x[i,j] for i in 1:n, j in 1:n if j!=i))
                 MOI.submit(m, MOI.LazyConstraint(cb_data), cstr)
@@ -227,36 +232,36 @@ function branch_and_cut(file, time_limit = 1)
     isOptimal = termination_status(m) == MOI.OPTIMAL
     if feasibleSolutionFound
         bound = ceil(JuMP.objective_bound(m))
-        println("\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound) 
-        return round(JuMP.objective_value(m)), bound, comput_time
+        println("\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound, "\t time : ",comput_time) 
+        return round(JuMP.objective_value(m)), bound, comput_time, time_slave/comput_time*100
     else
         println(file, "no feasible solutions found")
         return 0,0,comput_time
     end
 end
 
-function main_plans_coupants(time_limit = 10)
+function main_plans_coupants(time_limit = 10, heuristique = true)
     name_results = "resultats_plans_coupants_"*string(time_limit)*"s.txt"
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap")
+    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%)")
     for file in readdir("data")
         file_name = "data"*"/"*file
-        val, bound, comput_time = plans_coupants(file_name, time_limit)
+        val, bound, comput_time, prop_slave = plans_coupants(file_name, heuristique, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap, "\t", prop_slave)
     end   
     close(results_file)
 end
 
-function main_branch_and_cut(time_limit = 1)
+function main_branch_and_cut(time_limit = 10, heuristique = true)
     name_results = "resultats_bnc_"*string(time_limit)*"s.txt"
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap")
+    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%)")
     for file in readdir("data")
         file_name = "data/"*file
-        val, bound, comput_time = branch_and_cut(file_name, time_limit)
+        val, bound, comput_time, prop_slave = branch_and_cut(file_name, heuristique, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap,  "\t", prop_slave)
     end   
     close(results_file)
 end
