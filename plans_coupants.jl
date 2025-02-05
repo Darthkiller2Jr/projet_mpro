@@ -299,6 +299,7 @@ function main_branch_and_cut(time_limit = 10, heuristique = true)
     println(results_file, "file \t comput time \t limit time \t val \t gap \t time slave/total time(%)")
 
     # parcours des instances pour résolution et écriture
+    nb_resolue = 0
     for file in readdir("data")
         file_name = "data/"*file
         val, bound, comput_time, prop_slave, x = branch_and_cut(file_name, heuristique, time_limit)
@@ -306,7 +307,6 @@ function main_branch_and_cut(time_limit = 10, heuristique = true)
         println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", val,"\t", gap,  "\t", prop_slave)
 
         # si instance résolue on écrit la solution
-        nb_resolue = 0
         if gap<1e-2
             println(sol_file, file_name, "*********************************************************************")
             for i in findall(x.> 1-1e-4)
