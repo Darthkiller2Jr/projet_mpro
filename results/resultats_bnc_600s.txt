@@ -1,4 +1,0 @@
-file 	 comput time 	 limit time 	 gap 	 time slave/total time(%)
-data/instance_n5.txt	0.9200000762939453	600	0.0	87.5
-data/n_10-euclidean_false	0.21199989318847656	600	0.0	0.0
-data/n_10-euclidean_true	0.41499996185302734	600	0.0	0.0

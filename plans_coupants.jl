@@ -241,7 +241,11 @@ function branch_and_cut(file, slave_heur = true, time_limit = 1)
 end
 
 function main_plans_coupants(time_limit = 10, heuristique = true)
-    name_results = "resultats_plans_coupants_"*string(time_limit)*"s.txt"
+    if heuristique
+        name_results = "resultats_pc_fast_"*string(time_limit)*"s.txt"
+    else
+        name_results = "resultats_pc_fast_"*string(time_limit)*"s.txt"
+    end
     results_file = open("results/"*name_results, "w")
     println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%) \t solution")
     for file in readdir("data")
@@ -254,7 +258,11 @@ function main_plans_coupants(time_limit = 10, heuristique = true)
 end
 
 function main_branch_and_cut(time_limit = 10, heuristique = true)
-    name_results = "resultats_bnc_"*string(time_limit)*"s.txt"
+    if heuristique
+        name_results = "resultats_bnc_fast_"*string(time_limit)*"s.txt"
+    else
+        name_results = "resultats_bnc_fast_"*string(time_limit)*"s.txt"
+    end
     results_file = open("results/"*name_results, "w")
     println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%) \t solution")
     for file in readdir("data")
