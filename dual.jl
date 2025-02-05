@@ -57,20 +57,20 @@ function dual(file::String, time_limit = 30.0)
         # Récupération des valeurs d’une variable
         vX = JuMP.value.(x)
         bound = ceil(JuMP.objective_bound(m))
-        println("File: ", file, "\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound) 
-        return round(JuMP.objective_value(m)), bound, comput_time
+        println("File: ", file, "\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound, "\t time : ", comput_time) 
+        return round(JuMP.objective_value(m)), bound, comput_time, vX
     end
 end
 
 function main_dual(time_limit = 10)
     name_results = "resultats_dual_"*string(time_limit)*"s.txt"
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap")
+    println(results_file, "file \t comput time \t limit time \t gap \t solution")
     for file in readdir("data")
         file_name = "data"*"/"*file
-        val, bound, comput_time = dual(file_name, time_limit)
+        val, bound, comput_time, x = dual(file_name, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap, "\t", x)
     end   
     close(results_file)
 end

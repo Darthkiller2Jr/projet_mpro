@@ -168,7 +168,7 @@ function plans_coupants(file, slave_heur = true, time_limit = 30)
     
     # la valeur du ss pb est la valeur d'une solution réalisable, la valeur du probleme maître une borne inf (relaxation de contraintes)
     println("File: ", file, "\t Valeur de l’objectif : ", val_slave, "\t Meilleure borne : ", val_z, "\t time : ",comput_time)
-    return val_slave, val_z, comput_time, time_slave/comput_time*100
+    return val_slave, val_z, comput_time, time_slave/comput_time*100, x_star
 end
 
 function branch_and_cut(file, slave_heur = true, time_limit = 1)
@@ -233,20 +233,20 @@ function branch_and_cut(file, slave_heur = true, time_limit = 1)
     if feasibleSolutionFound
         bound = ceil(JuMP.objective_bound(m))
         println("\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound, "\t time : ",comput_time) 
-        return round(JuMP.objective_value(m)), bound, comput_time, time_slave/comput_time*100
+        return round(JuMP.objective_value(m)), bound, comput_time, time_slave/comput_time*100, value.(x)
     else
         println(file, "no feasible solutions found")
-        return 0,0,comput_time
+        return 0,0,comput_time, time_slave/comput_time*100, 0
     end
 end
 
 function main_plans_coupants(time_limit = 10, heuristique = true)
     name_results = "resultats_plans_coupants_"*string(time_limit)*"s.txt"
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%)")
+    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%) \t solution")
     for file in readdir("data")
         file_name = "data"*"/"*file
-        val, bound, comput_time, prop_slave = plans_coupants(file_name, heuristique, time_limit)
+        val, bound, comput_time, prop_slave, x = plans_coupants(file_name, heuristique, time_limit)
         gap =(val-bound)/bound*100
         println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap, "\t", prop_slave)
     end   
@@ -256,12 +256,12 @@ end
 function main_branch_and_cut(time_limit = 10, heuristique = true)
     name_results = "resultats_bnc_"*string(time_limit)*"s.txt"
     results_file = open("results/"*name_results, "w")
-    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%)")
+    println(results_file, "file \t comput time \t limit time \t gap \t time slave/total time(%) \t solution")
     for file in readdir("data")
         file_name = "data/"*file
-        val, bound, comput_time, prop_slave = branch_and_cut(file_name, heuristique, time_limit)
+        val, bound, comput_time, prop_slave, x = branch_and_cut(file_name, heuristique, time_limit)
         gap =(val-bound)/bound*100
-        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap,  "\t", prop_slave)
+        println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", gap,  "\t", prop_slave, "\t", x)
     end   
     close(results_file)
 end
