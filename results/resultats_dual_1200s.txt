@@ -1,0 +1,4 @@
+file 	 comput time 	 limit time 	 val 	 gap
+data/instance_n5.txt	1.6560001373291016	1200	2786.0	0.0
+data/n_10-euclidean_false	0.0989999771118164	1200	2684.0	0.0
+data/n_10-euclidean_true	0.14399981498718262	1200	5423.0	0.0

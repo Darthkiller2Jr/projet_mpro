@@ -63,13 +63,18 @@ function dual(file::String, time_limit = 30.0)
 end
 
 function main_dual(time_limit = 10)
-    name_results = "resultats_dual_"*string(time_limit)*"s.txt"
-    name_solution = "solutions_duales.txt"
+    name_results_1 = "resultats_1_dual_"*string(time_limit)*"s.txt"
+    name_solution_1 = "solutions_1_duales.txt"
 
-    results_file = open("results/"*name_results, "w")
-    sol_file = open("results/"*name_solution, "w")
+    name_results_2 = "resultats_2_dual_"*string(time_limit)*"s.txt"
+    name_solution_2 = "solutions_2_duales.txt"
+
+    results_file = open("results/"*name_results_1, "w")
+    sol_file = open("results/"*name_solution_1, "w")
+
     println(results_file, "file \t comput time \t limit time \t val \t gap")
     nb_resolue = 0
+    i = 1
     for file in readdir("data")
         file_name = "data"*"/"*file
         val, bound, comput_time, x = dual(file_name, time_limit)
@@ -84,8 +89,17 @@ function main_dual(time_limit = 10)
             println(sol_file)
             nb_resolue +=1
         end
+        i+=1
+        if i==33
+            close(results_file)
+            println(sol_file, "nb instances résolues : ", nb_resolue)
+            close(sol_file)
+            results_file = open("results/"*name_results_2, "w")
+            sol_file = open("results/"*name_solution_2, "w")
+        end
     end   
     close(results_file)
     println(sol_file, "nb instances résolues : ", nb_resolue)
     close(sol_file)
 end
+    
