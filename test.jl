@@ -138,41 +138,65 @@ function comparaison_with_without_heuristique_all_i()
     end
 end
 
-function test_heuristiques(n::Int,euclidien::Bool,max_cost::Bool;time_limit::Float64=10.0)
-    
+function test_heuristiques(n::Int, euclidien::Bool, max_cost::Bool; time_limit::Float64=10.0)
     filename = "data/n_$n-euclidean_$euclidien"
     if isfile(filename)
-
         include(filename)
-        println(filename)
+        println("File: ", filename)
 
-        routes_CW = robust_clark_wright(n, t, th, d, C, max_cost=max_cost)
-        println("Objectif de la sol CW: ", real_cost_smart(routes_CW,n,th,t,T))
+        # Timing robust_clark_wright
+        cw_time = @elapsed begin 
+            routes_CW = robust_clark_wright(n, t, th, d, C, max_cost=max_cost)
+        end
+        println("robust_clark_wright : $(real_cost_smart(routes_CW, n, th, t, T)) ($(cw_time)s).")
 
-        routes_LK = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien, ; two_opt=false,LK=true)
-        println("Objectif la sol LK sur les sous-tours: ", real_cost_smart(routes_LK,n,th,t,T))
+        # Timing sous_tours_heuristic with LK (LKH)
+        lk_time = @elapsed begin
+            routes_LK = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien; two_opt=false, LK=true)
+        end
+        println("sous_tours_heuristic (LK) : $(real_cost_smart(routes_LK, n, th, t, T)) ($(lk_time)s).")
 
-        route_2opt = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien, ; two_opt=true,LK=false)
-        println("Objectif la sol explo 2opt sur les sous-tours: ", real_cost_smart(route_2opt,n,th,t,T))
+        # Timing sous_tours_heuristic with 2-opt
+        twoopt_time = @elapsed begin
+            route_2opt = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien; two_opt=true, LK=false)
+        end
+        println("sous_tours_heuristic (2-opt) : $(real_cost_smart(route_2opt, n, th, t, T)) ($(twoopt_time)s).")
         
-        route_3opt = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien, ; two_opt=false,LK=false)
-        println("Objectif la sol explo 3opt sur les sous-tours: ", real_cost_smart(route_3opt,n,th,t,T))
+        # Timing sous_tours_heuristic with 3-opt
+        threeopt_time = @elapsed begin
+            route_3opt = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien; two_opt=false, LK=false)
+        end
+        println("sous_tours_heuristic (3-opt) : $(real_cost_smart(route_3opt, n, th, t, T)) ($(threeopt_time)s).")
 
-        routes_3opt_swap_max_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=false, two_opt=false)
-        println("Objectif la sol explo 3opt sur les sous-tours et swap 2opt entre tours: ", real_cost_smart(routes_3opt_swap_max_cost,n,th,t,T))
+        # Timing hybrid_heuristic: 3-opt on sub-tours + swap 2-opt between tours (max cost)
+        hybrid_swap2_max_time = @elapsed begin
+            routes_3opt_swap_max_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=false, two_opt=false)
+        end
+        println("hybrid_heuristic (3-opt + swap 2-opt, max cost) : $(real_cost_smart(routes_3opt_swap_max_cost, n, th, t, T)) ($(hybrid_swap2_max_time)s).")
 
-        routes_3opt_swap_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=true, two_opt=false)
-        println("Objectif la sol explo 3opt sur les sous-tours et swap 2opt entre tours (coûts réel): ", real_cost_smart(routes_3opt_swap_real_cost,n,th,t,T))
+        # Timing hybrid_heuristic: 3-opt on sub-tours + swap 2-opt between tours (real cost)
+        hybrid_swap2_real_time = @elapsed begin
+            routes_3opt_swap_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=true, two_opt=false)
+        end
+        println("hybrid_heuristic (3-opt + swap 2-opt, real cost) : $(real_cost_smart(routes_3opt_swap_real_cost, n, th, t, T)) ($(hybrid_swap2_real_time)s).")
 
-        #routes_LK_swap_max_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=true, real_cost=false, two_opt=false)
-        #println("Objectif la sol explo LK sur les sous-tours et swap 2opt entre tours : ", real_cost_smart(routes_LK_swap_max_cost,n,th,t,T))
+        # Timing hybrid_heuristic: 3-opt on sub-tours + swap 3-opt between tours (real cost)
+        hybrid_swap3_real_time = @elapsed begin
+            routes_3opt_swap3_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=true, two_opt=false, three_opt_swap=true)
+        end
+        println("hybrid_heuristic (3-opt + swap 3-opt, real cost) : $(real_cost_smart(routes_3opt_swap3_real_cost, n, th, t, T)) ($(hybrid_swap3_real_time)s).")
 
-        #routes_LK_swap_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=true, real_cost=true, two_opt=false)
-        #println("Objectif la sol explo LK sur les sous-tours et swap 2opt entre tours (coûts réel): ", real_cost_smart(routes_LK_swap_real_cost,n,th,t,T))
+        # lk_swap_time = @elapsed begin
+        #     routes_LK_swap_max_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=true, real_cost=false, two_opt=false)
+        # end
+        # println("hybrid_heuristic (LK + swap 2-opt, max cost) took $(lk_swap_time) seconds.")
+        # println("Objectif la sol explo LK sur les sous-tours et swap 2opt entre tours: ", real_cost_smart(routes_LK_swap_max_cost, n, th, t, T))
 
-        sol_opt = simple_opt(n,th,t,d,C,T,time_limit=time_limit)
-        println("Meilleure sol par MILP : ", sol_opt[2], ", Meilleure borne inf : ", sol_opt[3],"\n")
-    
+        # Timing the MILP optimization
+        milp_time = @elapsed begin
+            sol_opt = simple_opt(n, th, t, d, C, T, time_limit=time_limit)
+        end
+        println("Meilleure sol par MILP : ", sol_opt[2], ", Meilleure borne inf : ", sol_opt[3], " ($(milp_time)s)\n")
     end
 end
 
@@ -195,6 +219,6 @@ function test_heuristiques_all(euclidien::Bool)
     end
 end
 
-for n in 5:10
-    test_heuristiques(n,true,true,time_limit=10.0)
+for n in 5:100
+    test_heuristiques(n,true,true,time_limit=2.0)
 end

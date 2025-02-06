@@ -91,42 +91,31 @@ function robust_clark_wright(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vect
     return routes
 end
 
-function explo_2_3opt(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, euclidien::Bool; max_cost::Bool=true, two_opt::Bool=false)
+function explo_2_3opt(routes::Vector{Vector{Int}}, route_i::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, T::Int, euclidien::Bool; max_cost::Bool=true, two_opt::Bool=false)
+    route = routes[route_i]
     n = length(route)
     improvement = true
     #println(route,compute_route_cost(route,t,t_hat,max_cost))
-    old_cost = compute_route_cost(route,t,t_hat, d, C, max_cost=max_cost)
+    old_cost = real_cost_smart(routes,t_hat,t,T)
     while improvement
         improvement = false
         for i in 1:n-2
             for j in i+1:n-1
                 #println("Route : $route, test : $i, $j")
                 if two_opt
-                    if euclidien
-                        swap_cost = swap_2opt_cost(route,i,j,t,t_hat,max_cost)
-                        if swap_cost<0
-                            #println("swap $i, $j ($swap_cost)")
-                            route = two_opt_swap(route, i, j)
-                            improvement = true
-                            #println(route,compute_route_cost(route,t,t_hat,max_cost))
-                        end
-                    else
-                        new_route = two_opt_swap(route, i, j)
-                        new_cost = compute_route_cost(new_route,t,t_hat, d, C, max_cost=max_cost)
-                        if new_cost<old_cost
-                            route = new_route
-                            old_cost = new_cost
-                        end
-                    end   
+                    new_route = two_opt_swap(route, i, j)
+                    new_routes = copy(routes)
+                    new_routes[route_i] = new_route
+                    new_cost = real_cost_smart(new_routes,t_hat,t,T)
+                    if new_cost<old_cost
+                        routes = new_routes
+                        old_cost = new_cost
+                    end
                 else
                     for k in j+1:n
-                        if euclidien
-                            new_route, improvement = three_opt_swap_best(route, i, j, k, t, t_hat, max_cost)
-                        else
-                            new_route, improvement = three_opt_swap_best_non_eucl(route, i, j, k, t, t_hat, max_cost)
-                        end
+                        new_routes, improvement = three_opt_swap_best_non_eucl(routes, route_i, i, j, k, t, t_hat, max_cost)
                         if improvement
-                            route = new_route
+                            routes = new_routes
                             #println(route, compute_route_cost(route,t,t_hat,max_cost))
                         end
                     end
@@ -134,7 +123,7 @@ function explo_2_3opt(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d:
             end
         end
     end
-    return route
+    return routes
 end
 
 function lin_kernighan_one_route(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, euclidien::Bool; max_cost::Bool=true)
@@ -276,11 +265,14 @@ function swap_between_routes(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat:
                             optimized_route_1 = lin_kernighan_one_route(res_merge[1], t, t_hat, d, C, euclidien; max_cost=max_cost)
                             optimized_route_2 = lin_kernighan_one_route(res_merge[2], t, t_hat, d, C, euclidien; max_cost=max_cost)
                         else
-                            optimized_route_1 = explo_2_3opt(res_merge[1], t, t_hat, d, C, euclidien ; two_opt=two_opt, max_cost=max_cost)
-                            optimized_route_2 = explo_2_3opt(res_merge[2], t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
+                            new_routes = copy(routes)
+                            new_routes[i] = res_merge[1]
+                            optimized_routes_1 = explo_2_3opt(new_routes,i, t, t_hat, d, C, T, euclidien ; two_opt=two_opt, max_cost=max_cost)
+                            new_routes[i] = optimized_routes_1
+                            optimized_routes_2 = explo_2_3opt(new_routes,j, t, t_hat, d, C, T, euclidien; two_opt=two_opt, max_cost=max_cost)
+                            new_routes[j] = optimized_routes_2
                         end
-                        new_cost_r1 = compute_route_cost(optimized_route_1, t, t_hat, d, C, max_cost=max_cost)
-                        new_cost_r2 = compute_route_cost(optimized_route_2, t, t_hat, d, C, max_cost=max_cost)
+                        new_cost = real_cost_smart(new_routes,)
                         if new_cost_r1 + new_cost_r2 < best_tot && is_feasible(optimized_route_1,d,C) && is_feasible(optimized_route_2,d,C)
                             improvement = true
                             #println("improvement")
@@ -552,6 +544,7 @@ function two_opt_swap(route::Vector{Int}, i::Int, j::Int)
 end
 
 function three_opt_swap_best(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matrix{Int}, t_hat::Vector{Int}, max_cost::Bool)
+
     if i == 1
         end_segment_1 = 1
     else
@@ -612,7 +605,10 @@ function three_opt_swap_best(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matr
     return best_route, improvement
 end
 
-function three_opt_swap_best_non_eucl(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matrix{Int}, t_hat::Vector{Int}, max_cost::Bool)
+function three_opt_swap_best_non_eucl(routes::Vector{Vector{Int}}, route_i::Int, i::Int, j::Int, k::Int, t::Matrix{Int}, t_hat::Vector{Int}, max_cost::Bool)
+    
+    route = routes[route_i]
+
     if i == 1
         end_segment_1 = 1
     else
@@ -633,7 +629,7 @@ function three_opt_swap_best_non_eucl(route::Vector{Int}, i::Int, j::Int, k::Int
     #println("Segments:", segment1, segment2, segment3, segment4)
 
     # Original route cost
-    original_cost = compute_route_cost(route,t,t_hat,d,C,max_cost=max_cost)
+    original_cost = real_cost_smart(routes,t_hat,t,T)
 
     # All possible reconnections and their costs
     reconnections = [
@@ -647,10 +643,14 @@ function three_opt_swap_best_non_eucl(route::Vector{Int}, i::Int, j::Int, k::Int
         vcat(segment1, reverse(segment3), reverse(segment2), segment4), 
     ]
 
+    reconnections_routes = [copy(routes)*8]
+
+    for i in 1:8
+        reconnections_routes[i][route_i] = reconnections[i]
 
     new_costs = zeros(7)  # Preallocate the array
     for i in 1:7
-        new_costs[i] = compute_route_cost(reconnections[i+1], t, t_hat, d, C, max_cost=max_cost)
+        new_costs[i] = real_cost_smart(reconnections_routes[i+1],t_hat,t,T)
     end
 
     # Find the best reconnection
@@ -659,16 +659,16 @@ function three_opt_swap_best_non_eucl(route::Vector{Int}, i::Int, j::Int, k::Int
     # Check if the best cost is an improvement
     if new_costs[best_index]<original_cost
         improvement = true
-        best_route = reconnections[best_index+1]
+        best_routes = reconnections_routes[best_index+1]
     else
         improvement = false
-        best_route = route
+        best_routes = routes
     end
 
     #println(best_index)
     #println([rc[2] for rc in reconnections])
     #println(improvement)
-    return best_route, improvement
+    return best_routes, improvement
 end
 
 # Calcul du coup d'un swap 2-opt
@@ -820,7 +820,7 @@ function collect_active_arcs(routes::Vector{Vector{Int}})
     return active_arcs, num_arcs
 end
 
-function real_cost_smart(routes::Vector{Vector{Int}}, n::Int, t_hat::Vector{Int}, t::Matrix{Int}, T::Int)
+function real_cost_smart(routes::Vector{Vector{Int}}, t_hat::Vector{Int}, t::Matrix{Int}, T::Int)
     
     active_arcs, num_arcs = collect_active_arcs(routes)
 

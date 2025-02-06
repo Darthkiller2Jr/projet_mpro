@@ -91,6 +91,7 @@ function robust_clark_wright(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vect
     return routes
 end
 
+# Lin-Kernighan Procedure for TSP (applied to each route)
 function explo_2_3opt(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, euclidien::Bool; max_cost::Bool=true, two_opt::Bool=false)
     n = length(route)
     improvement = true
@@ -135,6 +136,11 @@ function explo_2_3opt(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d:
         end
     end
     return route
+end
+
+function perform_2opt_move(route::Vector{Int}, i::Int, j::Int)
+    # new route: keep 1..i, then reverse i+1..j, then j+1..end
+    return vcat(route[1:i], reverse(route[i+1:j]), route[j+1:end])
 end
 
 function lin_kernighan_one_route(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, euclidien::Bool; max_cost::Bool=true)
@@ -222,7 +228,7 @@ function lk_move!(current_route::Vector{Int}, i::Int, t1::Int, t_prev::Int, G::I
             pos_t_prev = findfirst(==(t_prev), current_route)
             pos_t_new = findfirst(==(t_new), current_route)
             if pos_t_prev !== nothing && pos_t_new !== nothing && pos_t_prev < pos_t_new
-                new_route = two_opt_swap(current_route, pos_t_prev, pos_t_new)
+                new_route = perform_2opt_move(current_route, pos_t_prev, pos_t_new)
                 new_cost = compute_route_cost(new_route, t, t_hat, d, C, max_cost=max_cost)
                 if new_cost < best_cost
                     best_route = new_route
@@ -802,6 +808,97 @@ function x_to_routes(x::Dict{Tuple{Int, Int}, Float64}, n::Int)
         push!(routes, route)
     end
     return routes
+end
+
+function real_cost(routes::Vector{Vector{Int}}, n::Int, t_hat::Vector{Int}, t::Matrix{Int}, T::Int)
+    # Define the model
+    m0 = Model(CPLEX.Optimizer)
+    set_optimizer_attribute(m0, "CPX_PARAM_SCRIND", 0)  # Suppress CPLEX output
+
+    # Define sets
+    V = 1:n
+    A = [(i, j) for i in V for j in V if i != j]
+
+    # Convert routes to x[(i, j)]
+    x = routes_to_x(routes,n)
+
+    # Define variables
+    @variable(m0, delta_1[(i, j) in A] >= 0)
+    @variable(m0, delta_2[(i, j) in A] >= 0)
+
+    # Add constraints
+    @constraint(m0, [(i, j) in A], delta_1[(i, j)] <= 1)
+    @constraint(m0, [(i, j) in A], delta_2[(i, j)] <= 2)
+
+    @constraint(m0, sum(delta_1[(i, j)] for (i, j) in A) <= T)
+    @constraint(m0, sum(delta_2[(i, j)] for (i, j) in A) <= T^2)
+
+    @objective(m0, max_cost, sum((delta_1[(i, j)] * (t_hat[i] + t_hat[j]) + delta_2[(i, j)] * t_hat[i] * t_hat[j]) * x[(i, j)] for (i, j) in A))
+
+    # Solve the model
+    optimize!(m0)
+
+    # Return the objective value plus the fixed cost term
+    return objective_value(m0) + sum(t[i, j] * x[(i, j)] for (i, j) in A)
+end
+
+function real_cost_smart_v0(routes::Vector{Vector{Int}}, n::Int, t_hat::Vector{Int}, t::Matrix{Int}, T::Int)
+
+    V = 1:n
+    A = [(i, j) for i in V for j in V if i != j]
+    x = routes_to_x(routes, n)
+
+    # Create coefficient dictionaries for delta_1 and delta_2 over all arcs
+    coeffs_delta_1 = Dict{Tuple{Int,Int}, Int}()
+    coeffs_delta_2 = Dict{Tuple{Int,Int}, Int}()
+    for (i, j) in A
+        coeffs_delta_1[(i, j)] = (t_hat[i] + t_hat[j]) * x[(i, j)]
+        coeffs_delta_2[(i, j)] = t_hat[i] * t_hat[j] * x[(i, j)]
+    end
+
+    sorted_arcs_delta_1 = sort(collect(keys(coeffs_delta_1)), by = k -> coeffs_delta_1[k], rev = true)
+    sorted_arcs_delta_2 = sort(collect(keys(coeffs_delta_2)), by = k -> coeffs_delta_2[k], rev = true)
+
+    # Initialize delta dictionaries with zero values for every arc
+    delta_1 = Dict{Tuple{Int,Int}, Int}((i, j) => 0 for (i, j) in A)
+    delta_2 = Dict{Tuple{Int,Int}, Int}((i, j) => 0 for (i, j) in A)
+
+    # Allocate delta_1 values until a total of T is reached.
+    sum_delta_1 = 0
+    idx = 1  # Using 1-indexing for arrays in Julia.
+    while sum_delta_1 < T && idx <= length(sorted_arcs_delta_1)
+        arc = sorted_arcs_delta_1[idx]
+        # Here we assign 1 unit of delta_1 for each arc in order.
+        delta_1[arc] = 1
+        sum_delta_1 += 1
+        idx += 1
+    end
+    # Pas de reste possible
+
+    # Allocate delta_2 values until a total of T^2 is reached.
+    sum_delta_2 = 0
+    idx = 1
+    while sum_delta_2 < T^2 && idx <= length(sorted_arcs_delta_2)
+        arc = sorted_arcs_delta_2[idx]
+        delta_2[arc] = 2
+        sum_delta_2 += 2
+        idx += 1
+    end
+    # If there is a remainder, allocate it to the next arc (if one exists)
+    if sum_delta_2 < T^2 && idx <= length(sorted_arcs_delta_2)
+        arc = sorted_arcs_delta_2[idx]
+        delta_2[arc] = T^2 - sum_delta_2
+        sum_delta_2 = T^2
+    end
+
+    # Compute and return the overall cost.
+    cost = 0
+    for (i, j) in A
+        cost += (t[i, j] + delta_1[(i, j)] * (t_hat[i] + t_hat[j]) +
+                 delta_2[(i, j)] * t_hat[i] * t_hat[j]) * x[(i, j)]
+    end
+
+    return cost
 end
 
 function collect_active_arcs(routes::Vector{Vector{Int}})
