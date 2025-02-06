@@ -69,21 +69,21 @@ end"""
 #include("data/n_10-euclidean_true")
 #print(robust_clark_wright(n,t,th,d,C))
 
-max = true
+max_cost = true
 """include("data/n_10-euclidean_true")
-routes_CW = robust_clark_wright(n, t, th, d, C, max=max)
+routes_CW = robust_clark_wright(n, t, th, d, C, max_cost=max_cost)
 println("Routes CW: ",routes_CW)
 #println(routes_to_x(routes_CW,n))
-println("Borne sup cout total CW : ", total_cost(routes_CW,t,th,max=max))
+println("Borne sup cout total CW : ", total_cost(routes_CW,t,th,max_cost=max_cost))
 println("Cout réel de la sol CW: ", real_cost(routes_CW,n,th,t,T))
-routes_LK = lin_kernighan_VRP(n, t, th, d, C, max=max, two_opt=false)
+routes_LK = lin_kernighan_VRP(n, t, th, d, C, max_cost=max_cost, two_opt=false)
 println("Routes LK: ",routes_LK)
 #println(routes_to_x(routes_LK,n))
-println("Borne sup cout total LK : ", total_cost(routes_LK,t,th,max=max))
+println("Borne sup cout total LK : ", total_cost(routes_LK,t,th,max_cost=max_cost))
 println("Cout réel de la sol LK: ", real_cost(routes_LK,n,th,t,T))
-routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max; two_opt=false)
+routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max_cost; two_opt=false)
 println("Routes LK^2: ",routes_LK_2)
-println("Borne sup cout total LK entre routes : ", total_cost(routes_LK_2,t,th,max=max))
+println("Borne sup cout total LK entre routes : ", total_cost(routes_LK_2,t,th,max_cost=max_cost))
 println("Cout réel de la sol LK entre routes : ", real_cost(routes_LK_2,n,th,t,T))
 sol_opt = simple_opt(n,th,t,d,C,T;verbose=false)
 println("Optimum réel : ",sol_opt[2])
@@ -94,10 +94,10 @@ function comparaison_with_without_heuristique(n::Int, euclidien::Bool;two_opt::B
     file = "data/n_$n-euclidean_$euclidien"
     println(file)
     include(file)
-    max=true
+    max_cost=true
 
     time_heuristic = @elapsed begin
-        routes_LK_2 = hybrid_heuristic(n, t, th, d, C, euclidien;max=max, two_opt=two_opt)
+        routes_LK_2 = hybrid_heuristic(n, t, th, d, C, euclidien;max_cost=max_cost, two_opt=two_opt)
     end
     #println("Routes LK^2: ",routes_LK_2)
     println("Cout réel de la sol heuristique : ", real_cost(routes_LK_2,n,th,t,T))
@@ -138,40 +138,63 @@ function comparaison_with_without_heuristique_all_i()
     end
 end
 
-function test_heuristiques(n::Int,euclidien::Bool,max::Bool)
-    include("data/n_$n-euclidean_$euclidien")
-    routes_CW = robust_clark_wright(n, t, th, d, C, max=max)
-    #println("Routes CW: ",routes_CW)
-    #println(routes_to_x(routes_CW,n))
-    #println("Borne sup cout total CW : ", total_cost(routes_CW,t,th,max=max))
-    println("Cout réel de la sol CW: ", real_cost(routes_CW,n,th,t,T))
-    routes_LK = lin_kernighan_VRP(n, t, th, d, C, max, euclidien, ; two_opt=false)
-    #println("Routes LK: ",routes_LK)
-    #println(routes_to_x(routes_LK,n))
-    #println("Borne sup cout total LK : ", total_cost(routes_LK,t,th,max=max))
-    println("Cout réel de la sol LK sur les sous-tours: ", real_cost(routes_LK,n,th,t,T))
-    routes_LK_2_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max=max, real_cost=true, two_opt=false)
-    #println("Routes LK^2: ",routes_LK_2)
-    #println("Borne sup cout total LK entre routes : ", total_cost(routes_LK_2,t,th,max=max))
-    println("Cout réel de la sol LK entre routes (cout réel): ", real_cost(routes_LK_2_real_cost,n,th,t,T))
-    routes_LK_2 = hybrid_heuristic(n, t, th, d, C, euclidien; max=max, real_cost=false, two_opt=false)
-    #println("Routes LK^2: ",routes_LK_2)
-    #println("Borne sup cout total LK entre routes : ", total_cost(routes_LK_2,t,th,max=max))
-    println("Cout réel de la sol LK entre routes (cout max): ", real_cost(routes_LK_2,n,th,t,T))
+function test_heuristiques(n::Int,euclidien::Bool,max_cost::Bool;time_limit::Float64=10.0)
+    
+    filename = "data/n_$n-euclidean_$euclidien"
+    if isfile(filename)
+
+        include(filename)
+        println(filename)
+
+        routes_CW = robust_clark_wright(n, t, th, d, C, max_cost=max_cost)
+        println("Objectif de la sol CW: ", real_cost_smart(routes_CW,n,th,t,T))
+
+        routes_LK = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien, ; two_opt=false,LK=true)
+        println("Objectif la sol LK sur les sous-tours: ", real_cost_smart(routes_LK,n,th,t,T))
+
+        route_2opt = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien, ; two_opt=true,LK=false)
+        println("Objectif la sol explo 2opt sur les sous-tours: ", real_cost_smart(route_2opt,n,th,t,T))
+        
+        route_3opt = sous_tours_heuristic(n, t, th, d, C, max_cost, euclidien, ; two_opt=false,LK=false)
+        println("Objectif la sol explo 3opt sur les sous-tours: ", real_cost_smart(route_3opt,n,th,t,T))
+
+        routes_3opt_swap_max_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=false, two_opt=false)
+        println("Objectif la sol explo 3opt sur les sous-tours et swap 2opt entre tours: ", real_cost_smart(routes_3opt_swap_max_cost,n,th,t,T))
+
+        routes_3opt_swap_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=true, two_opt=false)
+        println("Objectif la sol explo 3opt sur les sous-tours et swap 2opt entre tours (coûts réel): ", real_cost_smart(routes_3opt_swap_real_cost,n,th,t,T))
+
+        #routes_LK_swap_max_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=true, real_cost=false, two_opt=false)
+        #println("Objectif la sol explo LK sur les sous-tours et swap 2opt entre tours : ", real_cost_smart(routes_LK_swap_max_cost,n,th,t,T))
+
+        #routes_LK_swap_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=true, real_cost=true, two_opt=false)
+        #println("Objectif la sol explo LK sur les sous-tours et swap 2opt entre tours (coûts réel): ", real_cost_smart(routes_LK_swap_real_cost,n,th,t,T))
+
+        sol_opt = simple_opt(n,th,t,d,C,T,time_limit=time_limit)
+        println("Meilleure sol par MILP : ", sol_opt[2], ", Meilleure borne inf : ", sol_opt[3],"\n")
+    
+    end
 end
 
-for i in 5:100
-    euclidien = true
-    filename = "data/n_$i-euclidean_$euclidien"
-    if !isfile(filename)
-        continue
+function test_heuristiques_all(euclidien::Bool)
+    
+    for i in 5:100
+        filename = "data/n_$i-euclidean_$euclidien"
+        if !isfile(filename)
+            continue
+        end
+        println(i)
+        include(filename)
+        
+        routes_LK_2_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; real_cost=true, two_opt=false)
+        println("Cout réel de la sol LK entre routes (cout réel): ", real_cost(routes_LK_2_real_cost,n,th,t,T))
+        
+        routes_LK_2 = hybrid_heuristic(n, t, th, d, C, euclidien; real_cost=false, two_opt=false)
+        println("Cout réel de la sol LK entre routes (cout max_cost): ", real_cost(routes_LK_2,n,th,t,T),"\n")
+    
     end
-    println(i)
-    include(filename)
-    
-    routes_LK_2_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; real_cost=true, two_opt=false)
-    println("Cout réel de la sol LK entre routes (cout réel): ", real_cost(routes_LK_2_real_cost,n,th,t,T))
-    
-    routes_LK_2 = hybrid_heuristic(n, t, th, d, C, euclidien; real_cost=false, two_opt=false)
-    println("Cout réel de la sol LK entre routes (cout max): ", real_cost(routes_LK_2,n,th,t,T),"\n")
+end
+
+for n in 5:10
+    test_heuristiques(n,true,true,time_limit=10.0)
 end
