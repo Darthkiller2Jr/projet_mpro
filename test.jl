@@ -181,10 +181,10 @@ function test_heuristiques(n::Int, euclidien::Bool, max_cost::Bool; time_limit::
         println("hybrid_heuristic (3-opt + swap 2-opt, real cost) : $(real_cost_smart(routes_3opt_swap_real_cost, n, th, t, T)) ($(hybrid_swap2_real_time)s).")
 
         # Timing hybrid_heuristic: 3-opt on sub-tours + swap 3-opt between tours (real cost)
-        hybrid_swap3_real_time = @elapsed begin
-            routes_3opt_swap3_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=true, two_opt=false, three_opt_swap=true)
-        end
-        println("hybrid_heuristic (3-opt + swap 3-opt, real cost) : $(real_cost_smart(routes_3opt_swap3_real_cost, n, th, t, T)) ($(hybrid_swap3_real_time)s).")
+        #hybrid_swap3_real_time = @elapsed begin
+        #    routes_3opt_swap3_real_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=false, real_cost=true, two_opt=false, three_opt_swap=true)
+        #end
+        #println("hybrid_heuristic (3-opt + swap 3-opt, real cost) : $(real_cost_smart(routes_3opt_swap3_real_cost, n, th, t, T)) ($(hybrid_swap3_real_time)s).")
 
         # lk_swap_time = @elapsed begin
         #     routes_LK_swap_max_cost = hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=max_cost, LK=true, real_cost=false, two_opt=false)
