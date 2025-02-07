@@ -123,6 +123,56 @@ function slave_fast(n, x, t, th, T, time_limit = 1)
     return z, t_star
 end
 
+"""function real_cost_smart(n::Int,x::Matrix{Int},t::Matrix{Int},th::Vector{Int},T::Int,time_limit::Float64)
+    
+    active_arcs, num_arcs = collect_active_arcs(routes)
+
+    # Precompute necessary values for active arcs
+    t_vals = Vector{Int}(undef, num_arcs)
+    t_hat_sum = Vector{Int}(undef, num_arcs)
+    t_hat_prod = Vector{Int}(undef, num_arcs)
+    @inbounds for idx in 1:num_arcs
+        i, j = active_arcs[idx]
+        t_vals[idx] = t[i, j]
+        t_hat_sum[idx] = t_hat[i] + t_hat[j]
+        t_hat_prod[idx] = t_hat[i] * t_hat[j]
+    end
+
+    # Sort indices based on precomputed coefficients
+    sorted_order_delta1 = sortperm(t_hat_sum, rev=true)
+    sorted_order_delta2 = sortperm(t_hat_prod, rev=true)
+
+    # Allocate delta_1 efficiently
+    delta_1 = zeros(Int, num_arcs)
+    T_alloc = min(T, num_arcs)
+    if T_alloc > 0
+        @views delta_1[sorted_order_delta1[1:T_alloc]] .= 1
+    end
+
+    # Allocate delta_2 with possible remainder
+    delta_2 = zeros(Int, num_arcs)
+    max_cost_assign = min(num_arcs, T^2 ÷ 2)
+    sum_d2 = 2 * max_cost_assign
+    if max_cost_assign > 0
+        @views delta_2[sorted_order_delta2[1:max_cost_assign]] .= 2
+    end
+
+    # Handle remainder for delta_2
+    remainder = T - sum_d2
+    if remainder > 0 && max_cost_assign < num_arcs
+        delta_2[sorted_order_delta2[max_cost_assign + 1]] += remainder
+    end
+
+    # Compute the total cost using SIMD and inbounds for max_costimum speed
+    cost = 0
+    @inbounds @simd for idx in 1:num_arcs
+        cost += t_vals[idx] + delta_1[idx] * t_hat_sum[idx] + delta_2[idx] * t_hat_prod[idx]
+    end
+
+    return cost
+end"""
+
+
 function plans_coupants(file, slave_heur = true, time_limit = 30)
     include(file)
     # choix de la methode de résolution du sous pb
