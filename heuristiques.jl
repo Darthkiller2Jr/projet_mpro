@@ -880,7 +880,7 @@ function sous_tours_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vec
         if LK
             optimized_route = lin_kernighan_one_route(route, t, t_hat, d, C, euclidien; max_cost=max_cost)
         else
-            optimized_route = explo_2_3opt(route, t, t_hat, d, C, euclidien; max_cost=max_cost)
+            optimized_route = explo_2_3opt(route, t, t_hat, d, C, euclidien; two_opt=two_opt,max_cost=max_cost)
         end
         push!(optimized_routes, optimized_route)
         #print(optimized_route)
@@ -901,7 +901,7 @@ function hybrid_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{
         if LK
             LK_route = lin_kernighan_one_route(route, t, t_hat, d, C, euclidien; max_cost=max_cost)
         else
-            LK_route = explo_2_3opt(route, t, t_hat, d, C, euclidien; max_cost=max_cost)
+            LK_route = explo_2_3opt(route, t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
         end
         push!(LK_routes, LK_route)
     end

@@ -38,20 +38,20 @@ end
 
 d = rand(n)*10  # Example demands (replace with actual data)
 
-x1,obj1 = simple_opt(V,A,t_hat,t,d,20,0)
+x1,obj1 = robust_opt(V,A,t_hat,t,d,20,0)
 visualize_solution(x1,obj1, coordinates, n, 20, 0)
 
-x2,obj2 = simple_opt(V,A,t_hat,t,d,40,0)
+x2,obj2 = robust_opt(V,A,t_hat,t,d,40,0)
 visualize_solution(x2,obj2, coordinates, n, 40, 0)
 
-x3,obj3 = simple_opt(V,A,t_hat,t,d,20,1)
+x3,obj3 = robust_opt(V,A,t_hat,t,d,20,1)
 visualize_solution(x3,obj3, coordinates, n, 20, 1)
 
-x4,obj4 = simple_opt(V,A,t_hat,t,d,20,3)
+x4,obj4 = robust_opt(V,A,t_hat,t,d,20,3)
 visualize_solution(x4,obj4, coordinates, n, 20, 3)"""
 
 """include("data/n_10-euclidean_true")
-x2,obj2 = simple_opt(V,A,th,t,d,C,0)
+x2,obj2 = robust_opt(V,A,th,t,d,C,0)
 println(obj2)"""
 i=1
 obj_false=0
@@ -59,10 +59,10 @@ obj_true=0
 """for i in 5:20
     println("n = $(i)")
     include("data/n_$(i)-euclidean_false")
-    x,obj_false = simple_opt(n,th,t,d,C,T)
+    x,obj_false = robust_opt(n,th,t,d,C,T)
     println("objectif (non euclidien): $obj_false")
     include("data/n_$(i)-euclidean_true")
-    x,obj_true = simple_opt(n,th,t,d,C,T)
+    x,obj_true = robust_opt(n,th,t,d,C,T)
     println("objectif (euclidien): $obj_true")
 end"""
 
@@ -85,7 +85,7 @@ routes_LK_2 = hybrid_heuristic(n, t, th, d, C, max_cost; two_opt=false)
 println("Routes LK^2: ",routes_LK_2)
 println("Borne sup cout total LK entre routes : ", total_cost(routes_LK_2,t,th,max_cost=max_cost))
 println("Cout réel de la sol LK entre routes : ", real_cost(routes_LK_2,n,th,t,T))
-sol_opt = simple_opt(n,th,t,d,C,T;verbose=false)
+sol_opt = robust_opt(n,th,t,d,C,T;verbose=false)
 println("Optimum réel : ",sol_opt[2])
 println("Routes optimale : ", x_to_routes(sol_opt[1],n))"""
 
@@ -106,7 +106,7 @@ function comparaison_with_without_heuristique(n::Int, euclidien::Bool;two_opt::B
     heuristic_x = routes_to_x(routes_LK_2, n)
     # With heuristic
     #println("Solving with heuristic:")
-    sol_opt_with_heuristic = simple_opt(n, th, t, d, C, T; heuristic_solution=heuristic_x, verbose=false)
+    sol_opt_with_heuristic = robust_opt(n, th, t, d, C, T; heuristic_solution=heuristic_x, verbose=false)
     Gap = (sol_opt_with_heuristic[2]-sol_opt_with_heuristic[3])/sol_opt_with_heuristic[2]
     println(sol_opt_with_heuristic[3])
     println("Meilleure solution du solver : ", sol_opt_with_heuristic[2], " (Gap : $Gap)")
@@ -115,7 +115,7 @@ function comparaison_with_without_heuristique(n::Int, euclidien::Bool;two_opt::B
 
     # Without heuristic
     #println("\nSolving without heuristic:")
-    sol_opt_without_heuristic = simple_opt(n, th, t, d, C, T; verbose=false)
+    sol_opt_without_heuristic = robust_opt(n, th, t, d, C, T; verbose=false)
     Gap_without_heuristique = (sol_opt_without_heuristic[2]-sol_opt_without_heuristic[3])/sol_opt_without_heuristic[2]
     println(sol_opt_without_heuristic[3])
     println("Meilleure solution du solver : ", sol_opt_without_heuristic[2], " (Gap : $Gap_without_heuristique)")
@@ -194,9 +194,16 @@ function test_heuristiques(n::Int, euclidien::Bool, max_cost::Bool; time_limit::
 
         # Timing the MILP optimization
         milp_time = @elapsed begin
-            sol_opt = simple_opt(n, th, t, d, C, T, time_limit=time_limit)
+            sol_opt = robust_opt(n, th, t, d, C, T, time_limit=time_limit)
         end
-        println("Meilleure sol par MILP : ", sol_opt[2], ", Meilleure borne inf : ", sol_opt[3], " ($(milp_time)s)\n")
+        println("Meilleure sol par MILP : ", sol_opt[2], ", Meilleure borne inf : ", sol_opt[3], " ($(milp_time)s)")
+        
+        # MILP avec warm start
+        milp_WS_time = @elapsed begin
+            heuristic_x = routes_to_x(routes_3opt_swap_real_cost, n)
+            sol_opt_WS = robust_opt(n, th, t, d, C, T, heuristic_solution=heuristic_x, time_limit=time_limit)
+        end
+        println("Meilleure sol par MILP (warm start): ", sol_opt_WS[2], ", Meilleure borne inf : ", sol_opt_WS[3], " ($(milp_WS_time)s)\n")
     end
 end
 
@@ -219,6 +226,14 @@ function test_heuristiques_all(euclidien::Bool)
     end
 end
 
-for n in 5:100
+for n in 40:40
     test_heuristiques(n,true,true,time_limit=2.0)
 end
+
+n = 5
+euclidien = true
+filename = "data/n_$n-euclidean_$euclidien"
+include(filename)
+relache = relache_continu(n, th, t, d, C, T, verbose=false)
+println("Meilleure solution du solver : ", relache[2])
+println("Temps : ", relache[4], " seconds")

@@ -173,7 +173,7 @@ end
 end"""
 
 
-function plans_coupants(file, slave_heur = true, time_limit = 30)
+function plans_coupants(file; slave_heur = true, time_limit = 30)
     include(file)
     # choix de la methode de résolution du sous pb
     if slave_heur
@@ -221,7 +221,7 @@ function plans_coupants(file, slave_heur = true, time_limit = 30)
     return val_slave, bound_master, comput_time, time_slave/comput_time*100, x_star
 end
 
-function branch_and_cut(file, slave_heur = true, time_limit = 1)
+function branch_and_cut(file; slave_heur = true, time_limit = 1)
     print("File: ", file)
     include(file)
 
