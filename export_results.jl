@@ -76,10 +76,10 @@ function to_csv(time_limit::Float64)
     file_name_time = "results_exact_methods/results_time.csv"
 
     file_gap = open(file_name_gap, "w")
-    println(file_gap, "n,euclidien,dual,B&C,plans coupants, B&C with heuristic, plans_coupants with heuristic")
+    println(file_gap, "n,euclidien,plans coupants,B&C,B&C with heuristic,dual,dual with warm start")
 
     file_time = open(file_name_time, "w")
-    println(file_time, "n,euclidien,dual,B&C,plans coupants, B&C with heuristic, plans_coupants with heuristic")
+    println(file_time, "n,euclidien,plans coupants,B&C,B&C with heuristic,dual,dual with warm start")
 
     for i in 5:100
         for euclidien in ["true","false"]
@@ -94,9 +94,9 @@ function to_csv(time_limit::Float64)
             time_pc = sol_pc[3]
 
             # plans coupants heuristic
-            sol_pch = plans_coupants(instance,slave_heur=true,time_limit=time_limit)
-            gap_pch = 1 - sol_pch[2]/sol_pch[1]
-            time_pch = sol_pch[3]
+            #sol_pch = plans_coupants(instance,slave_heur=true,time_limit=time_limit)
+            #gap_pch = 1 - sol_pch[2]/sol_pch[1]
+            #time_pch = sol_pch[3]
 
             # B&C classique
             sol_bc = branch_and_cut(instance,slave_heur=false,time_limit=time_limit)
@@ -113,8 +113,13 @@ function to_csv(time_limit::Float64)
             gap_dual = 1 - sol_dual[2]/sol_dual[1]
             time_dual = sol_dual[3]
 
-            println(file_gap,"$n,$euclidien,$gap_pc,$gap_pch,$gap_bc,$gap_bch,$gap_dual")
-            println(file_time,"$n,$euclidien,$time_pc,$time_pch,$time_bc,$time_bch,$time_dual")
+            # dual with warm start
+            sol_dual_ws = dual(instance,warm_start=true,time_limit=time_limit)
+            gap_dual_ws = 1 - sol_dual_ws[2]/sol_dual_ws[1]
+            time_dual_ws = sol_dual_ws[3]
+
+            println(file_gap,"$n,$euclidien,$gap_pc,$gap_bc,$gap_bch,$gap_dual,$gap_dual_ws")
+            println(file_time,"$n,$euclidien,$time_pc,$time_bc,$time_bch,$time_dual,$time_dual_ws")
 
             flush(file_gap)
             flush(file_time)

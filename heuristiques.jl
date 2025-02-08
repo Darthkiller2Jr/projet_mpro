@@ -495,7 +495,7 @@ function swap_between_routes_3opt_real_cost(routes::Vector{Vector{Int}}, t::Matr
     return routes
 end
 
-function swap_between_routes_real_cost(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C, euclidien::Bool=true; max_cost::Bool=true, LK::Bool=false, two_opt::Bool=false)
+function swap_between_routes_real_cost(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, T::Int,euclidien::Bool=true; max_cost::Bool=true, LK::Bool=false, two_opt::Bool=false)
     improvement = true
     while improvement
         improvement = false
@@ -889,7 +889,7 @@ function sous_tours_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vec
     return optimized_routes
 end
 
-function hybrid_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, euclidien::Bool=true; max_cost::Bool=true, real_cost=false, LK::Bool=false, two_opt::Bool=false, three_opt_swap::Bool=false)
+function hybrid_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, T::Int, euclidien::Bool=true; max_cost::Bool=true, real_cost=false, LK::Bool=false, two_opt::Bool=false, three_opt_swap::Bool=false)
     
     # Clark and Wright pour sol initiale
     CW_routes = robust_clark_wright(n, t, t_hat, d, C, max_cost=max_cost)
@@ -917,7 +917,7 @@ function hybrid_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{
         if three_opt_swap
             LK_all_routes = swap_between_routes_3opt_real_cost(LK_routes, t, t_hat, d, C, euclidien; max_cost=max_cost, LK=LK, two_opt=two_opt)
         else
-            LK_all_routes = swap_between_routes_real_cost(LK_routes, t, t_hat, d, C, euclidien; max_cost=max_cost, LK=LK, two_opt=two_opt)
+            LK_all_routes = swap_between_routes_real_cost(LK_routes, t, t_hat, d, C, T, euclidien; max_cost=max_cost, LK=LK, two_opt=two_opt)
         end
     end
     #println(LK_all_routes,real_cost(LK_all_routes,n,th,t,T))

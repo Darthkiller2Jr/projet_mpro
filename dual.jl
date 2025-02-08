@@ -1,7 +1,8 @@
 using JuMP
 using CPLEX
+include("heuristiques.jl")
 
-function dual(file::String; time_limit = 30.0)
+function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     include(file)
 
     # 
@@ -29,6 +30,15 @@ function dual(file::String; time_limit = 30.0)
     @variable(m, β1[i in 1:n, j in 1:n] >= 0)
     @variable(m, β2[i in 1:n, j in 1:n] >= 0)
 
+    if warm_start
+        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
+        heuristic_x = routes_to_x(heuristic_routes, n)
+        for i in 1:n
+            for j in 1:n
+                set_start_value(x[i,j], get(heuristic_x, (i,j), 0.0))
+            end
+        end
+    end
 
     # Fonction objectif
     @objective(m, Min, 
