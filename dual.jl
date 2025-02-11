@@ -30,6 +30,7 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     @variable(m, β1[i in 1:n, j in 1:n] >= 0)
     @variable(m, β2[i in 1:n, j in 1:n] >= 0)
 
+    time_used=0
     if warm_start
         start_warm = time()
         heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
@@ -42,7 +43,7 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
         end
     end
 
-    set_time_limit_sec(m, max(5,time_limit-time_used))
+    set_time_limit_sec(m, max(1,time_limit-time_used))
     # Fonction objectif
     @objective(m, Min, 
     sum(t[i,j] * x[i,j] + β1[i,j] + 2 * β2[i,j] for i in 1:n, j in 1:n if j!=i) + α1 * T + α2 * T^2
@@ -71,7 +72,7 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
         vX = JuMP.value.(x)
         bound = ceil(JuMP.objective_bound(m))
         println("File: ", file, "\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound, "\t time : ", comput_time) 
-        return round(JuMP.objective_value(m)), bound, comput_time, vX
+        return round(JuMP.objective_value(m)), bound, comput_time+time_used, vX
     end
 end
 
@@ -82,6 +83,7 @@ function main_dual(time_limit = 10, warm_start = false)
     else
         name_results = "resultats_dual_"*string(time_limit)*"s.txt"
         name_solution = "solutions_1_duales.txt"
+    end
 
     results_file = open("results/"*name_results, "w")
     sol_file = open("results/"*name_solution, "w")
