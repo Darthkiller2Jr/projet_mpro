@@ -107,43 +107,39 @@ function explo_2_3opt(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d:
     improvement = true
     #println(route,compute_route_cost(route,t,t_hat,max_cost))
     old_cost = compute_route_cost(route,t,t_hat, d, C, max_cost=max_cost)
+    best_route = route
+    best_cost = old_cost
     while improvement
         improvement = false
         for i in 1:n-2
             for j in i+1:n-1
                 #println("Route : $route, test : $i, $j")
                 if two_opt
-                    if euclidien
-                        swap_cost = swap_2opt_cost(route,i,j,t,t_hat,max_cost)
-                        if swap_cost<0
-                            #println("swap $i, $j ($swap_cost)")
-                            route = two_opt_swap(route, i, j)
-                            improvement = true
-                            #println(route,compute_route_cost(route,t,t_hat,max_cost))
-                        end
-                    else
-                        new_route = two_opt_swap(route, i, j)
-                        new_cost = compute_route_cost(new_route,t,t_hat, d, C, max_cost=max_cost)
-                        if new_cost<old_cost
-                            route = new_route
-                            old_cost = new_cost
-                        end
-                    end   
+                    new_route = two_opt_swap(route, i, j)
+                    new_cost = compute_route_cost(new_route,t,t_hat, d, C, max_cost=max_cost)
+                    if new_cost<best_cost
+                        improvement = true
+                        best_route = new_route
+                        best_cost = new_cost
+                    end
                 else
                     for k in j+1:n
-                        if euclidien
-                            new_route, improvement = three_opt_swap_best(route, i, j, k, t, t_hat, max_cost)
-                        else
-                            new_route, improvement = three_opt_swap_best_non_eucl(route, i, j, k, t, t_hat, max_cost)
-                        end
-                        if improvement
-                            route = new_route
+                        new_route, new_cost = best_3opt_swap(route, i, j, k, t, t_hat, d,C,max_cost)
+                        if new_cost<best_cost
+                            best_route = new_route
+                            best_cost = new_cost
+                            improvement = true
+                            #println("i : $i, j: $j, k : $k, cost = ",best_cost)
                             #println(route, compute_route_cost(route,t,t_hat,max_cost))
+                            #println(compute_route_cost(new_route,t,t_hat,d,C))
                         end
                     end
                 end
             end
         end
+        route = best_route
+        old_cost = best_cost
+        #println("Nouvelle route : $old_cost")
     end
     return route
 end
@@ -292,7 +288,7 @@ function swap_between_routes(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat:
                         end
                         new_cost_r1 = compute_route_cost(optimized_route_1, t, t_hat, d, C, max_cost=max_cost)
                         new_cost_r2 = compute_route_cost(optimized_route_2, t, t_hat, d, C, max_cost=max_cost)
-                        if new_cost_r1 + new_cost_r2 < best_tot && is_feasible(optimized_route_1,d,C) && is_feasible(optimized_route_2,d,C)
+                        if new_cost_r1 + new_cost_r2 < best_tot """&& is_feasible(optimized_route_1,d,C) && is_feasible(optimized_route_2,d,C)"""
                             improvement = true
                             #println("improvement")
                             best_tot = new_cost_r1 + new_cost_r2
@@ -639,67 +635,39 @@ function three_opt_swap_best(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matr
     #println(best_index)
     #println([rc[2] for rc in reconnections])
     #println(improvement)
-    return best_route, improvement
+    return best_route, best_cost
 end
 
-function three_opt_swap_best_non_eucl(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matrix{Int}, t_hat::Vector{Int}, max_cost::Bool)
-    if i == 1
-        end_segment_1 = 1
-    else
-        end_segment_1 = route[i-1]
-    end
-    if k == length(route)
-        deb_segment_4 = 1
-    else
-        deb_segment_4 = route[k+1]
-    end
-
+function best_3opt_swap(route::Vector{Int}, i::Int, j::Int, k::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, max_cost::Bool)
     # Define the segments
     segment1 = route[1:i-1]
     segment2 = route[i:j]
     segment3 = route[j+1:k]
     segment4 = route[k+1:end]
-    
-    #println("Segments:", segment1, segment2, segment3, segment4)
-
-    # Original route cost
-    original_cost = compute_route_cost(route,t,t_hat,d,C,max_cost=max_cost)
 
     # All possible reconnections and their costs
     reconnections = [
         route,  # Original route
-        vcat(segment1, reverse(segment2), segment3, segment4), 
-        vcat(segment1, segment2, reverse(segment3), segment4), 
-        vcat(segment1, reverse(segment2), reverse(segment3), segment4), 
-        vcat(segment1, segment3, segment2, segment4), 
-        vcat(segment1, segment3, reverse(segment2), segment4), 
-        vcat(segment1, reverse(segment3), segment2, segment4), 
-        vcat(segment1, reverse(segment3), reverse(segment2), segment4), 
+        vcat(segment1, reverse(segment2), segment3, segment4),
+        vcat(segment1, segment2, reverse(segment3), segment4),
+        vcat(segment1, reverse(segment2), reverse(segment3), segment4),
+        vcat(segment1, segment3, segment2, segment4),
+        vcat(segment1, segment3, reverse(segment2), segment4),
+        vcat(segment1, reverse(segment3), segment2, segment4),
+        vcat(segment1, reverse(segment3), reverse(segment2), segment4),
     ]
 
-
-    new_costs = zeros(7)  # Preallocate the array
-    for i in 1:7
-        new_costs[i] = compute_route_cost(reconnections[i+1], t, t_hat, d, C, max_cost=max_cost)
+    new_costs = zeros(8)
+    for idx in 1:8
+        new_costs[idx] = compute_route_cost(reconnections[idx], t, t_hat, d, C, max_cost=max_cost)
     end
 
     # Find the best reconnection
     best_index = argmin(new_costs)
 
-    # Check if the best cost is an improvement
-    if new_costs[best_index]<original_cost
-        improvement = true
-        best_route = reconnections[best_index+1]
-    else
-        improvement = false
-        best_route = route
-    end
-
-    #println(best_index)
-    #println([rc[2] for rc in reconnections])
-    #println(improvement)
-    return best_route, improvement
+    return reconnections[best_index], new_costs[best_index]
 end
+
 
 # Calcul du coup d'un swap 2-opt
 function swap_2opt_cost(route::Vector{Int}, i::Int, j::Int, t::Matrix{Int}, t_hat::Vector{Int}, max_cost::Bool)
