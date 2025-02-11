@@ -87,7 +87,7 @@ function main_dual(time_limit = 10)
     i = 1
     for file in readdir("data")
         file_name = "data"*"/"*file
-        val, bound, comput_time, x = dual(file_name, time_limit)
+        val, bound, comput_time, x = dual(file_name; warm_start=false, time_limit=time_limit)
         gap =(val-bound)/bound*100
         println(results_file, file_name,"\t", comput_time, "\t", time_limit,"\t", val, "\t", gap)
 
