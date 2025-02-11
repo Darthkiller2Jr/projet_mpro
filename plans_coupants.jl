@@ -221,7 +221,7 @@ function plans_coupants(file; slave_heur = true, time_limit = 30)
     return val_slave, bound_master, comput_time, time_slave/comput_time*100, x_star
 end
 
-function branch_and_cut(file; slave_heur = true, time_limit = 1)
+function branch_and_cut(file; slave_heur = true, warm_start = false, time_limit = 1)
     print("File: ", file)
     include(file)
 
@@ -241,6 +241,16 @@ function branch_and_cut(file; slave_heur = true, time_limit = 1)
     @variable(m, x[i in 1:n, j in 1:n], Bin)  # x_ij ∈ {0,1}
     @variable(m, u[i in 2:n] >= 0)  # u_i ≥ 0
     @variable(m, z)
+
+    if warm_start
+        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
+        heuristic_x = routes_to_x(heuristic_routes, n)
+        for i in 1:n
+            for j in 1:n
+                set_start_value(x[i,j], get(heuristic_x, (i,j), 0.0))
+            end
+        end
+    end
 
     # Fonction objectif
     @objective(m, Min, z)
@@ -332,7 +342,7 @@ function main_plans_coupants(time_limit = 10, heuristique = true)
     close(sol_file)
 end
 
-function main_branch_and_cut(time_limit = 10, heuristique = true)
+function main_branch_and_cut(time_limit = 10, heuristique = true, warm_start = false)
 
     # nom des fichiers d'écriture
     if heuristique
@@ -352,7 +362,7 @@ function main_branch_and_cut(time_limit = 10, heuristique = true)
     nb_resolue = 0
     for file in readdir("data")
         file_name = "data/"*file
-        val, bound, comput_time, prop_slave, x = branch_and_cut(file_name; heuristique, time_limit)
+        val, bound, comput_time, prop_slave, x = branch_and_cut(file_name; heuristique, warm_start, time_limit)
         gap =(val-bound)/bound*100
         println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", val,"\t", gap,  "\t", prop_slave)
 
