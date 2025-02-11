@@ -369,7 +369,7 @@ function main_branch_and_cut(time_limit = 10, heuristique = true, warm_start = f
     nb_resolue = 0
     for file in readdir("data")
         file_name = "data/"*file
-        val, bound, comput_time, prop_slave, x = branch_and_cut(file_name; heuristique, warm_start, time_limit)
+        val, bound, comput_time, prop_slave, x = branch_and_cut(file_name; slave_heur=heuristique, warm_start=warm_start, time_limit=time_limit)
         gap =(val-bound)/bound*100
         println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", val,"\t", gap,  "\t", prop_slave)
 
