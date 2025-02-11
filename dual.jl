@@ -9,7 +9,7 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     m = Model(CPLEX.Optimizer)
 
     # Limite de temps
-    set_time_limit_sec(m, time_limit)
+    
     # MOI.set(m, MOI.NumberOfThreads(), 1)
     set_silent(m)
     # # Désactive le presolve (simplification automatique du modèle)
@@ -31,8 +31,10 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     @variable(m, β2[i in 1:n, j in 1:n] >= 0)
 
     if warm_start
+        start_warm = time()
         heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
         heuristic_x = routes_to_x(heuristic_routes, n)
+        time_used = time()-start_warm
         for i in 1:n
             for j in 1:n
                 set_start_value(x[i,j], get(heuristic_x, (i,j), 0.0))
@@ -40,6 +42,7 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
         end
     end
 
+    set_time_limit_sec(m, max(5,time_limit-time_used))
     # Fonction objectif
     @objective(m, Min, 
     sum(t[i,j] * x[i,j] + β1[i,j] + 2 * β2[i,j] for i in 1:n, j in 1:n if j!=i) + α1 * T + α2 * T^2
@@ -72,22 +75,22 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     end
 end
 
-function main_dual(time_limit = 10)
-    name_results_1 = "resultats_1_dual_"*string(time_limit)*"s.txt"
-    name_solution_1 = "solutions_1_duales.txt"
+function main_dual(time_limit = 10, warm_start = false)
+    if warm_start
+        name_results = "resultats_dual_ws_"*string(time_limit)*"s.txt"
+        name_solution = "solutions_1_duales_ws.txt"
+    else
+        name_results = "resultats_dual_"*string(time_limit)*"s.txt"
+        name_solution = "solutions_1_duales.txt"
 
-    name_results_2 = "resultats_2_dual_"*string(time_limit)*"s.txt"
-    name_solution_2 = "solutions_2_duales.txt"
-
-    results_file = open("results/"*name_results_1, "w")
-    sol_file = open("results/"*name_solution_1, "w")
+    results_file = open("results/"*name_results, "w")
+    sol_file = open("results/"*name_solution, "w")
 
     println(results_file, "file \t comput time \t limit time \t val \t gap")
     nb_resolue = 0
-    i = 1
     for file in readdir("data")
         file_name = "data"*"/"*file
-        val, bound, comput_time, x = dual(file_name; warm_start=false, time_limit=time_limit)
+        val, bound, comput_time, x = dual(file_name; warm_start=warm_start, time_limit=time_limit)
         gap =(val-bound)/bound*100
         println(results_file, file_name,"\t", comput_time, "\t", time_limit,"\t", val, "\t", gap)
 
@@ -98,14 +101,6 @@ function main_dual(time_limit = 10)
             end
             println(sol_file)
             nb_resolue +=1
-        end
-        i+=1
-        if i==33
-            close(results_file)
-            println(sol_file, "nb instances résolues : ", nb_resolue)
-            close(sol_file)
-            results_file = open("results/"*name_results_2, "w")
-            sol_file = open("results/"*name_solution_2, "w")
         end
     end   
     close(results_file)
