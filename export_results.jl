@@ -21,10 +21,10 @@ function comparaison_heuristiques_n(n::Int, euclidien::Bool)
             sol_3opt = real_cost_smart(sous_tours_heuristic(n, t, th, d, C, true, euclidien; two_opt=false, LK=false),n,th,t,T)
         end
         time_hybrid_max_cost = @elapsed begin
-            sol_hybrid_max_cost = real_cost_smart(hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=true, LK=false, real_cost=false, two_opt=false),n,th,t,T)
+            sol_hybrid_max_cost = real_cost_smart(hybrid_heuristic(n, t, th, d, C, T, euclidien; max_cost=true, LK=false, real_cost=false, two_opt=false),n,th,t,T)
         end
         time_hybrid_real_cost = @elapsed begin
-            sol_hybrid_real_cost = real_cost_smart(hybrid_heuristic(n, t, th, d, C, euclidien; max_cost=true, LK=false, real_cost=true, two_opt=false),n,th,t,T)
+            sol_hybrid_real_cost = real_cost_smart(hybrid_heuristic(n, t, th, d, C, T, euclidien; max_cost=true, LK=false, real_cost=true, two_opt=false),n,th,t,T)
         end
 
         relache = relache_continu(n, th, t, d, C, T, time_limit=20)

@@ -8,13 +8,24 @@ function cost(t::Matrix{Int},t_hat::Vector{Int},i::Int,j::Int;max_cost::Bool=tru
     end
 end
 
-function calc_savings(n::Int, t::Matrix{Int},t_hat::Vector{Int};max_cost::Bool=true)
+function calc_savings(n::Int, t::Matrix{Int},t_hat::Vector{Int};euclidien::Bool=false, max_cost::Bool=true)
     savings = Vector{Tuple{Int, Int, Int}}()
-    for i in 1:n-1
-        for j in i+1:n
-            # Utilisation des temps max_cost
-            savings_ij = cost(t,t_hat,i,j,max_cost=max_cost)
-            push!(savings, (savings_ij, i, j))
+    
+    function interval(i::Int)
+        if euclidien
+            return i+1:n
+        else
+            return 1:n
+        end
+    end
+
+    for i in 1:n
+        for j in interval(i)
+            if i != j
+                # Utilisation des temps max_cost
+                savings_ij = cost(t,t_hat,1,j,max_cost=max_cost) + cost(t,t_hat,i,1,max_cost=max_cost) - cost(t,t_hat,i,j,max_cost=max_cost)
+                push!(savings, (savings_ij, i, j))
+            end
         end
     end
     return savings
@@ -509,8 +520,8 @@ function swap_between_routes_real_cost(routes::Vector{Vector{Int}}, t::Matrix{In
                 best_route_i = copy(route_i)
                 best_route_j = copy(route_j)
 
-                for k in 1:length(route_i)
-                    for l in 1:length(route_j)
+                for k in 2:length(route_i)-1
+                    for l in 2:length(route_j)-1
                         res_merge = merge_routes_2opt(route_i, route_j, k, l, d, C)
                         #println("$i, $j, $k, $l")
                         if res_merge !== nothing
@@ -518,20 +529,39 @@ function swap_between_routes_real_cost(routes::Vector{Vector{Int}}, t::Matrix{In
                                 optimized_route_1 = lin_kernighan_one_route(res_merge[1], t, t_hat, d, C,euclidien; max_cost=max_cost)
                                 optimized_route_2 = lin_kernighan_one_route(res_merge[2], t, t_hat, d, C, euclidien; max_cost=max_cost)
                             else
-                                optimized_route_1 = explo_2_3opt(res_merge[1], t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
-                                optimized_route_2 = explo_2_3opt(res_merge[2], t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
+                                route_1,route_2,route_1_bis,route_2bis = res_merge[1],res_merge[2], res_merge[3],res_merge[4]
+
+                                optimized_route_1 = explo_2_3opt(route_1, t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
+                                optimized_route_2 = explo_2_3opt(route_2, t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
+
+                                optimized_route_1bis = explo_2_3opt(route_1_bis, t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
+                                optimized_route_2bis = explo_2_3opt(route_2bis, t, t_hat, d, C, euclidien; two_opt=two_opt, max_cost=max_cost)
                             end
+
                             new_routes = copy(routes)
                             new_routes[i] = optimized_route_1
                             new_routes[j] = optimized_route_2
                             merged_real_cost = real_cost_smart(new_routes,n,t_hat,t,T)
-                            if merged_real_cost < old_cost && is_feasible(optimized_route_1,d,C) && is_feasible(optimized_route_2,d,C)
+
+                            new_routes_bis = copy(routes)
+                            new_routes_bis[i] = optimized_route_1bis
+                            new_routes_bis[j] = optimized_route_2bis
+                            merged_real_cost_bis = real_cost_smart(new_routes_bis,n,t_hat,t,T)
+
+                            if merged_real_cost_bis < merged_real_cost
+                                new_routes = new_routes_bis
+                                merged_real_cost = merged_real_cost_bis
+                                #println(new_routes)
+                                #println(merged_real_cost)
+                            end
+
+                            if merged_real_cost < old_cost && is_feasible(new_routes[i],d,C) && is_feasible(new_routes[j],d,C)
                                 improvement = true
                                 #println("improvement")
                                 old_cost = merged_real_cost
                                 #println(i," ",j," ",best_tot)
-                                best_route_i = optimized_route_1
-                                best_route_j = optimized_route_2
+                                best_route_i = new_routes[i]
+                                best_route_j = new_routes[j]
                             end
                         end
                     end
@@ -696,9 +726,11 @@ function merge_routes_2opt(route_i::Vector{Int},route_j::Vector{Int},k::Int,l::I
 
     route_1 = vcat(segment1,segment4)
     route_2 = vcat(segment3,segment2)
-    
-    return route_1,route_2
 
+    route_1bis = vcat(segment1,reverse(segment3))
+    route_2bis = vcat(reverse(segment4),segment2)
+    #println(k,l,route_i,route_j,route_1,route_2, route_1bis, route_2bis)
+    return route_1,route_2, route_1bis, route_2bis
 end
 
 function cost_merge_routes_2opt(route_i::Vector{Int},route_j::Vector{Int},k::Int,l::Int,  t::Matrix{Int}, t_hat::Vector{Int}, max_cost::Bool)
@@ -734,7 +766,7 @@ function compute_route_cost(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{In
         non_realisabilite = max(0,sum(d[j] for j in route)-C)
     end
 
-    return route_cost + non_realisabilite*10000
+    return route_cost + non_realisabilite*200
 end
 
 function total_cost(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int ; max_cost::Bool=true)
