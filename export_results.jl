@@ -72,8 +72,8 @@ end
 
 function to_csv(time_limit::Float64)
 
-    file_name_gap = "results_exact_methods/results_gap.csv"
-    file_name_time = "results_exact_methods/results_time.csv"
+    file_name_gap = "results_exact_methods/results_gap_$time_limit.csv"
+    file_name_time = "results_exact_methods/results_time_$time_limit.csv"
 
     file_gap = open(file_name_gap, "w")
     println(file_gap, "n,euclidien,plans coupants,B&C,B&C with heuristic,dual,dual with warm start")
@@ -127,4 +127,47 @@ function to_csv(time_limit::Float64)
     end
     close(file_gap)
     close(file_time)
+end
+
+using CSV, DataFrames
+
+function update_dual_with_warm_start(time_limit::Float64)
+    file_name_gap = "results_exact_methods/results_gap.csv"
+    file_name_time = "results_exact_methods/results_time.csv"
+
+    # Read existing CSV files
+    df_gap = CSV.read(file_name_gap, DataFrame)
+    df_time = CSV.read(file_name_time, DataFrame)
+
+    # Initialize arrays to store new values
+    new_gap_dual_ws = Float64[]
+    new_time_dual_ws = Float64[]
+
+    for row in eachrow(df_gap)
+        n = row.n
+        euclidien = row.euclidien
+        instance = "data/n_$n-euclidean_$euclidien"
+
+        if !isfile(instance)
+            push!(new_gap_dual_ws, NaN)
+            push!(new_time_dual_ws, NaN)
+            continue
+        end
+
+        # Dual with warm start
+        sol_dual_ws = dual(instance, warm_start=true, time_limit=time_limit)
+        gap_dual_ws = 1 - sol_dual_ws[2] / sol_dual_ws[1]
+        time_dual_ws = sol_dual_ws[3]
+
+        push!(new_gap_dual_ws, gap_dual_ws)
+        push!(new_time_dual_ws, time_dual_ws)
+    end
+
+    # Add new columns to the dataframes
+    df_gap[!, :dual_with_warm_start] = new_gap_dual_ws
+    df_time[!, :dual_with_warm_start] = new_time_dual_ws
+
+    # Write the updated dataframes back to CSV files
+    CSV.write(file_name_gap, df_gap)
+    CSV.write(file_name_time, df_time)
 end

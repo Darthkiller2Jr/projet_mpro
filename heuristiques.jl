@@ -719,7 +719,7 @@ function cost_merge_routes_2opt(route_i::Vector{Int},route_j::Vector{Int},k::Int
 end
 
 # Helper function to calculate the cost of a route
-function compute_route_cost(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int; max_cost::Bool=true)
+function compute_route_cost_1_sens(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int; max_cost::Bool=true)
     # Dépot vers ville 1
     route_cost = cost(t, t_hat, route[1], 1, max_cost=max_cost)
     for k in 1:length(route)-1
@@ -734,7 +734,16 @@ function compute_route_cost(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{In
         non_realisabilite = max(0,sum(d[j] for j in route)-C)
     end
 
-    return route_cost + non_realisabilite*200
+    return route_cost + non_realisabilite*1000
+end
+
+function compute_route_cost(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int; euclidien::Bool=false,max_cost::Bool=true)
+
+    if euclidien
+        return compute_route_cost_1_sens(route,t,t_hat,d,C)
+    else
+        return max(compute_route_cost_1_sens(route,t,t_hat,d,C),compute_route_cost_1_sens(reverse(route),t,t_hat,d,C))
+    end
 end
 
 function total_cost(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int ; max_cost::Bool=true)
