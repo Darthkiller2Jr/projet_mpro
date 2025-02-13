@@ -221,7 +221,7 @@ function plans_coupants(file; slave_heur = true, time_limit = 30)
     return val_slave, bound_master, comput_time, time_slave/comput_time*100, x_star
 end
 
-function branch_and_cut(file; slave_heur = true, time_limit = 1)
+function branch_and_cut(file; slave_heur = true, warm_start = false, time_limit = 1)
     print("File: ", file)
     include(file)
 
@@ -235,13 +235,25 @@ function branch_and_cut(file; slave_heur = true, time_limit = 1)
 
     MOI.set(m, MOI.NumberOfThreads(), 1)
     set_silent(m)
-    set_time_limit_sec(m, time_limit)
 
     # Variables
     @variable(m, x[i in 1:n, j in 1:n], Bin)  # x_ij ∈ {0,1}
     @variable(m, u[i in 2:n] >= 0)  # u_i ≥ 0
     @variable(m, z)
 
+    time_used = 0
+    if warm_start
+        start_warm = time()
+        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
+        heuristic_x = routes_to_x(heuristic_routes, n)
+        time_used = time()-start_warm
+        for i in 1:n
+            for j in 1:n
+                set_start_value(x[i,j], get(heuristic_x, (i,j), 0.0))
+            end
+        end
+    end
+    set_time_limit_sec(m, max(1, time_limit-time_used))
     # Fonction objectif
     @objective(m, Min, z)
 
@@ -283,10 +295,10 @@ function branch_and_cut(file; slave_heur = true, time_limit = 1)
     if feasibleSolutionFound
         bound = ceil(JuMP.objective_bound(m))
         println("\t Valeur de l’objectif : ", JuMP.objective_value(m), "\t Meilleure borne : ", bound, "\t time : ",comput_time) 
-        return round(JuMP.objective_value(m)), bound, comput_time, time_slave/comput_time*100, value.(x)
+        return round(JuMP.objective_value(m)), bound, comput_time + time_used, time_slave/comput_time*100, value.(x)
     else
         println(file, "no feasible solutions found")
-        return 0,0,comput_time, time_slave/comput_time*100, 0
+        return 0,0,comput_time + time_used, time_slave/comput_time*100, 0
     end
 end
 
@@ -332,16 +344,21 @@ function main_plans_coupants(time_limit = 10, heuristique = true)
     close(sol_file)
 end
 
-function main_branch_and_cut(time_limit = 10, heuristique = true)
+function main_branch_and_cut(time_limit = 10, heuristique = true, warm_start = false)
 
     # nom des fichiers d'écriture
+    name_results = "resultats_bnc"
+    name_solution = "solutions_bnc"
     if heuristique
-        name_results = "resultats_bnc_fast_"*string(time_limit)*"s.txt"
-        name_solution = "solutions_bnc_fast.txt"
-    else
-        name_results = "resultats_bnc_"*string(time_limit)*"s.txt"
-        name_solution = "solutions_bnc.txt"
+        name_results = name_results*"_fast_"
+        name_solution = name_solution*"_fast_"
     end
+    if warm_start
+        name_results=name_results*"_ws_"
+        name_solution=name_solution*"_ws_"
+    end
+    name_results = name_results*string(time_limit)*"s.txt"
+    name_solution = name_solution*".txt"
 
     # emplacement des fichiers d'écriture
     results_file = open("results/"*name_results, "w")
@@ -352,7 +369,7 @@ function main_branch_and_cut(time_limit = 10, heuristique = true)
     nb_resolue = 0
     for file in readdir("data")
         file_name = "data/"*file
-        val, bound, comput_time, prop_slave, x = branch_and_cut(file_name; heuristique, time_limit)
+        val, bound, comput_time, prop_slave, x = branch_and_cut(file_name; slave_heur=heuristique, warm_start=warm_start, time_limit=time_limit)
         gap =(val-bound)/bound*100
         println(results_file, file_name,"\t", comput_time, "\t", time_limit, "\t", val,"\t", gap,  "\t", prop_slave)
 
