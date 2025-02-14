@@ -31,10 +31,13 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     @variable(m, β2[i in 1:n, j in 1:n] >= 0)
 
     time_used=0
+    euclidean = occursin("true",file)
     if warm_start
         start_warm = time()
-        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
-        heuristic_x = routes_to_x(heuristic_routes, n)
+        # heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,true)
+        # heuristic_x = routes_to_x(heuristic_routes, n)
+        sol_3opt = sous_tours_heuristic(n, t, th, d, C, true, euclidean; two_opt=false, LK=false)
+        heuristic_x = routes_to_x(sol_3opt, n)
         time_used = time()-start_warm
         for i in 1:n
             for j in 1:n

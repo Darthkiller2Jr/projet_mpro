@@ -1,5 +1,6 @@
 using JuMP
 using CPLEX
+include("heuristiques.jl")
 
 function master(n, C, d, U, time_limit)
     m = Model(CPLEX.Optimizer)
@@ -244,7 +245,7 @@ function branch_and_cut(file; slave_heur = true, warm_start = false, time_limit 
     time_used = 0
     if warm_start
         start_warm = time()
-        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
+        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,true)
         heuristic_x = routes_to_x(heuristic_routes, n)
         time_used = time()-start_warm
         for i in 1:n
