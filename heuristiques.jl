@@ -1,5 +1,6 @@
 using JuMP, CPLEX
 
+# donne la borne sup du coût d'un arc
 function cost(t::Matrix{Int},t_hat::Vector{Int},i::Int,j::Int;max_cost::Bool=true)
     if max_cost
         return t[i,j] + (t_hat[i] + t_hat[j]) + 2 * t_hat[j] * t_hat[i]
@@ -8,6 +9,7 @@ function cost(t::Matrix{Int},t_hat::Vector{Int},i::Int,j::Int;max_cost::Bool=tru
     end
 end
 
+# Calcul des savings pour l'algorithme de Clarke et Wright
 function calc_savings(n::Int, t::Matrix{Int},t_hat::Vector{Int};euclidien::Bool=false, max_cost::Bool=true)
     savings = Vector{Tuple{Int, Int, Int}}()
     
@@ -31,6 +33,7 @@ function calc_savings(n::Int, t::Matrix{Int},t_hat::Vector{Int};euclidien::Bool=
     return savings
 end
 
+# Cherche une route qui commmence ou termine par customer
 function find_route(routes::Vector{Vector{Int}}, customer::Int, deb::Bool)
     for route in routes
         if (customer == route[1] && deb) || (customer == route[end] && !deb)
@@ -44,6 +47,7 @@ function find_route(routes::Vector{Vector{Int}}, customer::Int, deb::Bool)
     return nothing
 end
 
+# verifie si le merge de 2 routes vérifie les contraintes de capacité
 function is_feasible(route_i::Vector{Int}, route_j::Vector{Int}, d::Vector{Int}, C::Int)
     # Check if the merged route satisfies capacity constraints
     d_i = 0
@@ -57,6 +61,7 @@ function is_feasible(route_i::Vector{Int}, route_j::Vector{Int}, d::Vector{Int},
     return d_i + d_j <= C
 end
 
+# verifie si une route vérifie les contraintes de capacité
 function is_feasible(route::Vector{Int}, d::Vector{Int}, C::Int)
     d_i = 0
     if length(route) != 0
@@ -70,6 +75,7 @@ function merge_routes(route_i::Vector{Int}, route_j::Vector{Int})
     return vcat(route_i, route_j)
 end
 
+# Application de l'algorithme de Clarke and Wright
 function robust_clark_wright(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int; max_cost::Bool=true)
     # Initialisation : une route/client
     routes = [[i] for i in 2:n]
@@ -102,6 +108,7 @@ function robust_clark_wright(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vect
     return routes
 end
 
+# Exploration 2 ou 3-opt d'un sous tour d'une solutions
 function explo_2_3opt(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, euclidien::Bool; max_cost::Bool=true, two_opt::Bool=false)
     n = length(route)
     improvement = true
@@ -144,119 +151,7 @@ function explo_2_3opt(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d:
     return route
 end
 
-function lin_kernighan_one_route(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, euclidien::Bool; max_cost::Bool=true)
-    best_route = copy(route)
-    best_cost = compute_route_cost(best_route, t, t_hat, d, C, max_cost=max_cost)
-
-    # We will try improvements until no further gain is possible.
-    improvement = true
-    while improvement
-        improvement = false
-        # Try each edge in the current best tour as a candidate for removal.
-        n = length(best_route)
-        for i in 1:n
-            # t1 is the node where we start a sequence of moves.
-            t1 = best_route[i]
-            # t2 is the neighbor following t1 (wrap-around at the end)
-            t2 = (i < n) ? best_route[i+1] : best_route[1]
-            # The gain from removing edge (t1,t2) is our starting point.
-            G0 = t[t1, t2]
-            # used will keep track of nodes already involved in the move sequence
-            used = falses(length(t))
-            used[t1] = true
-            used[t2] = true
-
-            # Start a recursive search for a sequence of moves
-            candidate_route, candidate_cost, candidate_gain = lk_move!(best_route, i, t1, t2, G0, used, t, t_hat; max_cost=max_cost)
-            if candidate_gain < 0 && candidate_cost < best_cost
-                best_route = candidate_route
-                best_cost = candidate_cost
-                improvement = true
-                break  # Accept the move and restart search over all edges
-            end
-        end
-    end
-
-    return best_route
-end
-
-# Recursive function for variable-depth move search.
-# Parameters:
-# - current_route: the current tour (vector of node indices)
-# - i: index in the route where t1 resides (for reference)
-# - t1: starting node of the move sequence
-# - t_prev: the node last removed from the tour (the "old" neighbor)
-# - G: accumulated gain so far (we try to make G negative)
-# - used: Boolean vector marking nodes already used in the sequence
-#
-# Returns: (new_route, new_cost, gain) 
-function lk_move!(current_route::Vector{Int}, i::Int, t1::Int, t_prev::Int, G::Int, used::AbstractVector{Bool},
-                    t::Matrix{Int}, t_hat::Vector{Int}; max_cost::Bool=true, depth::Int=1, max_costDepth::Int=5)
-
-    best_route = current_route
-    best_cost = compute_route_cost(current_route, t, t_hat, d, C, max_cost=max_cost)
-    best_gain = G
-
-    n = length(current_route)
-    # Loop over candidate nodes t_new that are not used yet
-    for j in 1:n
-        t_new = current_route[j]
-        # Do not allow t_new to be t1 or already used in this sequence.
-        if used[t_new] || t_new == t1
-            continue
-        end
-
-        # Consider adding edge (t_prev, t_new) as a new connection.
-        # Compute the gain from adding (t_prev, t_new)
-        delta = t[t_prev, t_new]  # gain: cost of edge we add
-        newG = G - delta
-        # If newG is not promising, skip.
-        if newG >= 0
-            continue
-        end
-
-        # Now, try to complete a move sequence by reconnecting t_new to t1.
-        # The candidate move is: remove (t1,?) and add (t_prev, t_new), then add (t_new,t1).
-        reconnectionCost = t[t_new, t1]
-        totalGain = newG + reconnectionCost
-
-        # If this move results in an overall improvement, try to update.
-        if totalGain < 0
-            # Construct a new route by performing a 2-opt move.
-            # We assume that the removal of edge (t1,t_prev) and addition of (t_prev,t_new) plus closing edge (t_new,t1)
-            # is equivalent to reversing an appropriate segment. (The precise details depend on the structure of the tour.)
-            # Here, we pick indices so that performing a 2-opt move between positions corresponding to t_prev and t_new yields the new tour.
-            pos_t_prev = findfirst(==(t_prev), current_route)
-            pos_t_new = findfirst(==(t_new), current_route)
-            if pos_t_prev !== nothing && pos_t_new !== nothing && pos_t_prev < pos_t_new
-                new_route = two_opt_swap(current_route, pos_t_prev, pos_t_new)
-                new_cost = compute_route_cost(new_route, t, t_hat, d, C, max_cost=max_cost)
-                if new_cost < best_cost
-                    best_route = new_route
-                    best_cost = new_cost
-                    best_gain = totalGain
-                end
-            end
-        end
-
-        # If we haven't reached our recursion depth limit, try to extend the sequence.
-        if depth < max_costDepth
-            # Mark t_new as used and search deeper.
-            used_copy = copy(used)
-            used_copy[t_new] = true
-            rec_route, rec_cost, rec_gain = lk_move!(current_route, i, t1, t_new, newG, used_copy, t, t_hat; max_cost=max_cost, depth=depth+1, max_costDepth=max_costDepth)
-            if rec_gain < best_gain && rec_cost < best_cost
-                best_route = rec_route
-                best_cost = rec_cost
-                best_gain = rec_gain
-            end
-        end
-    end
-
-    return best_route, best_cost, best_gain
-end
-
-
+# Recherche 2-opt sur les solutions complètes
 function swap_between_routes(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C, euclidien::Bool; max_cost::Bool=true, LK::Bool=false, two_opt::Bool=false)
     improvement = true
     while improvement
@@ -307,6 +202,7 @@ function swap_between_routes(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat:
     return routes
 end
 
+# renvoie toutes les permutations d'échanges 3-opt sur les solution complètes
 function three_opt_permutations(routes::Vector{Vector{Int}}, route_i::Int, route_j::Int, route_k::Int, i::Int, j::Int, k::Int)
 
     # Extract route segments
@@ -372,6 +268,7 @@ function three_opt_permutations(routes::Vector{Vector{Int}}, route_i::Int, route
     return permutations
 end
 
+# Version 3-opt de la recherche de voisinage sur les solutions complètes (bcp trop lent)
 function swap_between_routes_3opt(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C, euclidien::Bool; max_cost::Bool=true, LK::Bool=false, two_opt::Bool=false)
     improvement = true
     while improvement
@@ -439,6 +336,7 @@ function swap_between_routes_3opt(routes::Vector{Vector{Int}}, t::Matrix{Int}, t
     return routes
 end
 
+# Version coût réel de l'algo précédent
 function swap_between_routes_3opt_real_cost(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C, euclidien::Bool; max_cost::Bool=true, LK::Bool=false, two_opt::Bool=false)
     improvement = true
     while improvement
@@ -502,6 +400,7 @@ function swap_between_routes_3opt_real_cost(routes::Vector{Vector{Int}}, t::Matr
     return routes
 end
 
+# Algorithme d'exploration 2-opt des solutions complètes avec coût réel
 function swap_between_routes_real_cost(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, T::Int,euclidien::Bool=true; max_cost::Bool=true, LK::Bool=false, two_opt::Bool=false)
     improvement = true
     while improvement
@@ -701,23 +600,6 @@ function merge_routes_2opt(route_i::Vector{Int},route_j::Vector{Int},k::Int,l::I
     return route_1,route_2, route_1bis, route_2bis
 end
 
-function cost_merge_routes_2opt(route_i::Vector{Int},route_j::Vector{Int},k::Int,l::Int,  t::Matrix{Int}, t_hat::Vector{Int}, max_cost::Bool)
-    if k == 1
-        end_segment_1 = 1
-    else
-        end_segment_1 = route_i[k-1]
-    end
-    if l == length(route_j)
-        deb_segment_3 = 1
-    else
-        deb_segment_3 = route[l+1]
-    end
-    old_cost = cost(t, t_hat, end_segment_1, route_i[k], max_cost=max_cost) + cost(t, t_hat, route_j[l], deb_segment_3, max_cost=max_cost)
-    new_cost = cost(t, t_hat, end_segment_1, route_j[l], max_cost=max_cost) + cost(t, t_hat, route_i[k], deb_segment_3, max_cost=max_cost)
-    return new_cost - old_cost
-
-end
-
 # Helper function to calculate the cost of a route
 function compute_route_cost_1_sens(route::Vector{Int}, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int; max_cost::Bool=true)
     # Dépot vers ville 1
@@ -754,7 +636,7 @@ function total_cost(routes::Vector{Vector{Int}}, t::Matrix{Int}, t_hat::Vector{I
     return c
 end
 
-function routes_to_x(routes::Vector{Vector{Int}},n::Int)
+function routes_to_x(routes::Vector{Vector{Int}},n::Int) # Conversion du format d'une solution d'une liste de sommets vers xij
     x = Dict((i, j) => 0 for i in 1:n for j in 1:n if i != j)
     for route in routes
         for k in 1:length(route)-1
@@ -771,7 +653,7 @@ function routes_to_x(routes::Vector{Vector{Int}},n::Int)
     return x
 end
 
-function x_to_routes(x::Dict{Tuple{Int, Int}, Float64}, n::Int)
+function x_to_routes(x::Dict{Tuple{Int, Int}, Float64}, n::Int) # Conversion du format d'une solution de la forme xij vers une liste de sommets
     V = 1:n
     routes = Vector{Vector{Int}}()
     next_node = Dict{Int, Int}()
@@ -829,7 +711,7 @@ function collect_active_arcs(routes::Vector{Vector{Int}})
     return active_arcs, num_arcs
 end
 
-function real_cost_smart(routes::Vector{Vector{Int}}, n::Int, t_hat::Vector{Int}, t::Matrix{Int}, T::Int)
+function real_cost_smart(routes::Vector{Vector{Int}}, n::Int, t_hat::Vector{Int}, t::Matrix{Int}, T::Int) # Coût d'une solution complète avec l'heuristique développée pour le sous problème
     
     active_arcs, num_arcs = collect_active_arcs(routes)
 
@@ -898,6 +780,7 @@ function sous_tours_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vec
     return optimized_routes
 end
 
+# Heuristique générale sur les solutions complètes
 function hybrid_heuristic(n::Int, t::Matrix{Int}, t_hat::Vector{Int}, d::Vector{Int}, C::Int, T::Int, euclidien::Bool=true; max_cost::Bool=true, real_cost=false, LK::Bool=false, two_opt::Bool=false, three_opt_swap::Bool=false)
     
     # Clark and Wright pour sol initiale
