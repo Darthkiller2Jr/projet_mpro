@@ -27,7 +27,6 @@ rappel deadlines:
 - heurstiques.jl
 - lecture.jl
 - main_exactes.jl: exécute les méthodes exactes de résolution avec le même temps d'exécution pour chaque.
-- optim.jl:
 - plans_coupants.jl: implémente l'algorithme des plans_coupants et de branch-and-cut.
 - static.jl: résout le problème statique.
 -test.jl:
