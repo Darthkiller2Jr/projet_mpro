@@ -90,7 +90,8 @@ function to_csv(time_limit::Float64)
             
             # plans coupants classique
             sol_pc = plans_coupants(instance,slave_heur=false,time_limit=time_limit)
-            gap_pc = 1 - sol_pc[2]/sol_pc[1]
+            gap_pc = sol_pc[1]/sol_pc[2] - 1
+
             time_pc = sol_pc[3]
 
             # plans coupants heuristic
@@ -100,22 +101,22 @@ function to_csv(time_limit::Float64)
 
             # B&C classique
             sol_bc = branch_and_cut(instance,slave_heur=false,time_limit=time_limit)
-            gap_bc = 1 - sol_bc[2]/sol_bc[1]
+            gap_bc = - 1 + sol_bc[1]/sol_bc[2]
             time_bc = sol_bc[3]
 
             # B&C heuristic
             sol_bch = branch_and_cut(instance,slave_heur=true,time_limit=time_limit)
-            gap_bch = 1 - sol_bch[2]/sol_bch[1]
+            gap_bch = -1 + sol_bch[1]/sol_bch[2]
             time_bch = sol_bch[3]
 
             # dual
             sol_dual = dual(instance,time_limit=time_limit)
-            gap_dual = 1 - sol_dual[2]/sol_dual[1]
+            gap_dual = -1 + sol_dual[1]/sol_dual[2]
             time_dual = sol_dual[3]
 
             # dual with warm start
             sol_dual_ws = dual(instance,warm_start=true,time_limit=time_limit)
-            gap_dual_ws = 1 - sol_dual_ws[2]/sol_dual_ws[1]
+            gap_dual_ws = -1 + sol_dual_ws[1]/sol_dual_ws[2]
             time_dual_ws = sol_dual_ws[3]
 
             println(file_gap,"$n,$euclidien,$gap_pc,$gap_bc,$gap_bch,$gap_dual,$gap_dual_ws")
