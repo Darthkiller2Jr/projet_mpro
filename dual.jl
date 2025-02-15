@@ -2,6 +2,7 @@ using JuMP
 using CPLEX
 include("heuristiques.jl")
 
+# algorithme de dualisation
 function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     include(file)
 
@@ -30,6 +31,7 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     @variable(m, β1[i in 1:n, j in 1:n] >= 0)
     @variable(m, β2[i in 1:n, j in 1:n] >= 0)
 
+    # si on utilise le warm_start
     time_used=0
     euclidean = occursin("true",file)
     if warm_start
@@ -79,6 +81,7 @@ function dual(file::String; warm_start::Bool=false, time_limit = 30.0)
     end
 end
 
+# exécute l'algorithme de dualisation sur toutes les instances.
 function main_dual(time_limit = 10, warm_start = false)
     if warm_start
         name_results = "resultats_dual_ws_"*string(time_limit)*"s.txt"

@@ -1,6 +1,7 @@
 using JuMP
 using CPLEX
 
+# resout le pb statique de l'instance file avec un temps limite
 function static(file, time_limit =10)
     include(file)
 
@@ -14,6 +15,7 @@ function static(file, time_limit =10)
 
     set_time_limit_sec(m, time_limit)
 
+    # Contraintes 
     @constraint(m, [i in 2:n], sum(x[j,i] for j in 1:n if j != i) == 1)
     @constraint(m, [i in 2:n], sum(x[i,j] for j in 1:n if j != i) == 1)
     @constraint(m, sum(x[i,1] for i in 2:n) == sum(x[1,j] for j in 2:n))
@@ -38,7 +40,9 @@ function static(file, time_limit =10)
     end
 end
 
+# la fonction résout le problème statique sur toutes les instances avec la limite de temps indiquée.
 function main_static(time_limit = 10)
+
 
     name_results = "resultats_static_"*string(time_limit)*"s.txt"
     name_solution = "solutions_static.txt"
@@ -50,11 +54,14 @@ function main_static(time_limit = 10)
     nb_resolue = 0
     for file in readdir("data")
         file_name = "data"*"/"*file
+        # résolution
         val, bound, comput_time, x = static(file_name, time_limit)
         gap =(val-bound)/bound*100
+        # écriture dans le fichier
         println(results_file, file_name,"\t", comput_time, "\t", time_limit,"\t", val, "\t", gap)
 
         if gap<1e-2
+            # écriture de la solution si résolue.
             println(sol_file, file_name, "*********************************************************************")
             for i in findall(x.> 1-1e-4)
                 print(sol_file, "(",i[1],",", i[2],")"," ")
