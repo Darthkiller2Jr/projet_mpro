@@ -1,6 +1,9 @@
 using JuMP
 using CPLEX
+include("heuristiques.jl")
 
+
+# résout le PLNE du problème maître.
 function master(n, C, d, U, time_limit)
     m = Model(CPLEX.Optimizer)
 
@@ -37,6 +40,7 @@ function master(n, C, d, U, time_limit)
     end
 end
 
+# PL pour le sous probleme
 function slave(n, x, t, th, T, time_limit = 30)
     m = Model(CPLEX.Optimizer)
 
@@ -75,6 +79,7 @@ function slave(n, x, t, th, T, time_limit = 30)
     end
 end
 
+# Algorithme exact pour le sous problème
 function slave_fast(n, x, t, th, T, time_limit = 1)
 
     indexes = [(i,j) for i in 1:n for j in 1:n]
@@ -123,56 +128,7 @@ function slave_fast(n, x, t, th, T, time_limit = 1)
     return z, t_star
 end
 
-"""function real_cost_smart(n::Int,x::Matrix{Int},t::Matrix{Int},th::Vector{Int},T::Int,time_limit::Float64)
-    
-    active_arcs, num_arcs = collect_active_arcs(routes)
-
-    # Precompute necessary values for active arcs
-    t_vals = Vector{Int}(undef, num_arcs)
-    t_hat_sum = Vector{Int}(undef, num_arcs)
-    t_hat_prod = Vector{Int}(undef, num_arcs)
-    @inbounds for idx in 1:num_arcs
-        i, j = active_arcs[idx]
-        t_vals[idx] = t[i, j]
-        t_hat_sum[idx] = t_hat[i] + t_hat[j]
-        t_hat_prod[idx] = t_hat[i] * t_hat[j]
-    end
-
-    # Sort indices based on precomputed coefficients
-    sorted_order_delta1 = sortperm(t_hat_sum, rev=true)
-    sorted_order_delta2 = sortperm(t_hat_prod, rev=true)
-
-    # Allocate delta_1 efficiently
-    delta_1 = zeros(Int, num_arcs)
-    T_alloc = min(T, num_arcs)
-    if T_alloc > 0
-        @views delta_1[sorted_order_delta1[1:T_alloc]] .= 1
-    end
-
-    # Allocate delta_2 with possible remainder
-    delta_2 = zeros(Int, num_arcs)
-    max_cost_assign = min(num_arcs, T^2 ÷ 2)
-    sum_d2 = 2 * max_cost_assign
-    if max_cost_assign > 0
-        @views delta_2[sorted_order_delta2[1:max_cost_assign]] .= 2
-    end
-
-    # Handle remainder for delta_2
-    remainder = T - sum_d2
-    if remainder > 0 && max_cost_assign < num_arcs
-        delta_2[sorted_order_delta2[max_cost_assign + 1]] += remainder
-    end
-
-    # Compute the total cost using SIMD and inbounds for max_costimum speed
-    cost = 0
-    @inbounds @simd for idx in 1:num_arcs
-        cost += t_vals[idx] + delta_1[idx] * t_hat_sum[idx] + delta_2[idx] * t_hat_prod[idx]
-    end
-
-    return cost
-end"""
-
-
+# algorithme des plans coupants
 function plans_coupants(file; slave_heur = true, time_limit = 30)
     include(file)
     # choix de la methode de résolution du sous pb
@@ -187,9 +143,14 @@ function plans_coupants(file; slave_heur = true, time_limit = 30)
     time_slave = 0
     U = Vector{Matrix{Float64}}(undef, 1)
     U[1] = t
+
+    # On fait une première résolution pour forcer à résoudre le ss pb mais si la limite
+    # de temps est dépassé pour avoir une valeur.
     start = time()
+    # première résolution du problème maître
     val_z, x_star, bound_master = master(n,C,d,U, time_limit)
     s = time()
+    # première résolution du sous-problème
     val_slave, t_star = slave_fn(n,x_star,t,th,T, time_limit)
     time_slave += time()-s
     # Condition d'arêt:
@@ -241,10 +202,11 @@ function branch_and_cut(file; slave_heur = true, warm_start = false, time_limit 
     @variable(m, u[i in 2:n] >= 0)  # u_i ≥ 0
     @variable(m, z)
 
+    # warm start si appelé
     time_used = 0
     if warm_start
         start_warm = time()
-        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,false)
+        heuristic_routes = hybrid_heuristic(n,t,th,d,C,T,true)
         heuristic_x = routes_to_x(heuristic_routes, n)
         time_used = time()-start_warm
         for i in 1:n
@@ -278,9 +240,11 @@ function branch_and_cut(file; slave_heur = true, warm_start = false, time_limit 
             x_star = callback_value.((cb_data,), x)
             val_z = callback_value(cb_data, z)
             s = time()
-            val_slave, t_star = slave_fast(n, x_star, t, th, T)
+            # résolution du sous problème.
+            val_slave, t_star = slave_fn(n, x_star, t, th, T)
             time_slave += time()-s
             if val_z < val_slave
+                # ajout de la contrainte
                 cstr = @build_constraint(z >= sum(t_star[i,j]*x[i,j] for i in 1:n, j in 1:n if j!=i))
                 MOI.submit(m, MOI.LazyConstraint(cb_data), cstr)
             end
@@ -302,6 +266,7 @@ function branch_and_cut(file; slave_heur = true, warm_start = false, time_limit 
     end
 end
 
+# exécute les plans_coupants sur toutes les instances
 function main_plans_coupants(time_limit = 10, heuristique = true)
 
     # nom des fichiers d'écriture
@@ -344,6 +309,7 @@ function main_plans_coupants(time_limit = 10, heuristique = true)
     close(sol_file)
 end
 
+# exécute le branch-and-cut sur toutes les instances
 function main_branch_and_cut(time_limit = 10, heuristique = true, warm_start = false)
 
     # nom des fichiers d'écriture
