@@ -1,8 +1,0 @@
-file 	 comput time 	 limit time 	 gap
-data/instance_n5.txt	0.8259999752044678	10	0.0
-data/n_10-euclidean_false	0.25100016593933105	10	0.0
-data/n_10-euclidean_true	0.4219999313354492	10	0.0
-
-data/n_100-euclidean_false	10.055999994277954	10	2372.4137931034484
-data/n_100-euclidean_true	10.026999950408936	10	140.27663653793482
-data/n_11-euclidean_false	1.003000020980835	10	0.0
